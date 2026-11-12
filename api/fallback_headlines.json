@@ -1,0 +1,252 @@
+{
+  "world": [
+    {
+      "title": "Global markets remain cautious as inflation and rates stay in focus",
+      "source": "Reuters",
+      "published": "2026-11-12T09:00:00Z",
+      "url": "https://www.reuters.com/world/",
+      "context": "Investors are watching inflation and interest-rate signals closely as global markets try to balance growth expectations with lingering uncertainty around policy decisions."
+    },
+    {
+      "title": "Leaders push for fresh diplomatic talks as regional tensions persist",
+      "source": "AP News",
+      "published": "2026-11-12T08:00:00Z",
+      "url": "https://apnews.com/world",
+      "context": "Officials across several regions are reopening talks and pushing for de-escalation, as geopolitical pressure and strategic uncertainty remain high."
+    },
+    {
+      "title": "Shipping and trade routes stay under pressure as supply chains adjust",
+      "source": "Bloomberg",
+      "published": "2026-11-12T07:00:00Z",
+      "url": "https://www.bloomberg.com/world",
+      "context": "Global commerce is still adapting to shipping bottlenecks, freight volatility, and uneven demand across major trade corridors."
+    },
+    {
+      "title": "World energy markets remain sensitive to supply and demand shifts",
+      "source": "Financial Times",
+      "published": "2026-11-12T06:30:00Z",
+      "url": "https://www.ft.com/world",
+      "context": "Energy producers and consumers are watching storage, supply conditions, and geopolitical risk as prices remain volatile."
+    },
+    {
+      "title": "Aid, health, and logistics systems stay under strain in multiple regions",
+      "source": "BBC News",
+      "published": "2026-11-12T06:00:00Z",
+      "url": "https://www.bbc.com/news/world",
+      "context": "Humanitarian agencies are balancing emergency logistics and medical support while demand remains elevated in several conflict and climate-affected areas."
+    },
+    {
+      "title": "Global leaders focus on resilience, trade, and strategic stability",
+      "source": "CNN",
+      "published": "2026-11-12T05:30:00Z",
+      "url": "https://www.cnn.com/world",
+      "context": "Multilateral pressure is increasing around economic resilience, supply chain security, and diplomatic coordination across major powers."
+    }
+  ],
+  "india": [
+    {
+      "title": "India focuses on infrastructure and public investment as growth targets remain in view",
+      "source": "The Hindu",
+      "published": "2026-11-12T09:30:00Z",
+      "url": "https://www.thehindu.com/",
+      "context": "Policy attention remains on infrastructure expansion, capital investment, and government spending as India works to preserve momentum in key economic sectors."
+    },
+    {
+      "title": "Policy and trade discussions continue as businesses monitor next steps",
+      "source": "Live Mint",
+      "published": "2026-11-12T08:30:00Z",
+      "url": "https://www.livemint.com/",
+      "context": "Business leaders are reviewing policy direction and trade conditions, with renewed attention on how officials will handle growth and investment priorities."
+    },
+    {
+      "title": "Regional development projects remain central to policy planning",
+      "source": "Indian Express",
+      "published": "2026-11-12T07:30:00Z",
+      "url": "https://indianexpress.com/",
+      "context": "State and national leaders are emphasizing regional projects, energy capacity, and infrastructure as part of the next growth phase."
+    },
+    {
+      "title": "Industrial output and public spending remain key to India’s growth outlook",
+      "source": "Business Standard",
+      "published": "2026-11-12T06:45:00Z",
+      "url": "https://www.business-standard.com/",
+      "context": "Analysts are watching output and investment signals closely as India balances demand, spending, and manufacturing momentum."
+    },
+    {
+      "title": "Transport and logistics demand continues to shape investment plans",
+      "source": "Mint",
+      "published": "2026-11-12T06:00:00Z",
+      "url": "https://www.livemint.com/",
+      "context": "Supply chains and transport networks remain central to business planning as demand and infrastructure investment evolve."
+    }
+  ],
+  "ai-technology": [
+    {
+      "title": "AI infrastructure spending remains a major focus for global technology firms",
+      "source": "TechCrunch",
+      "published": "2026-11-12T09:10:00Z",
+      "url": "https://techcrunch.com/",
+      "context": "Large technology companies continue to increase investment in chips, cloud capacity, and large-scale model infrastructure to support AI growth."
+    },
+    {
+      "title": "Model safety and compute demand shape the next wave of enterprise AI investment",
+      "source": "The Verge",
+      "published": "2026-11-12T08:10:00Z",
+      "url": "https://www.theverge.com/",
+      "context": "Executives are balancing performance improvements with safety, cost, and data governance as AI adoption expands across industries."
+    },
+    {
+      "title": "Open-source AI projects continue to expand as rivals challenge proprietary platforms",
+      "source": "Wired",
+      "published": "2026-11-12T07:10:00Z",
+      "url": "https://www.wired.com/",
+      "context": "New open-source releases are intensifying competition, encouraging more experimentation and faster innovation in the AI ecosystem."
+    },
+    {
+      "title": "Cloud providers race to expand AI capacity for enterprise workloads",
+      "source": "Reuters",
+      "published": "2026-11-12T06:10:00Z",
+      "url": "https://www.reuters.com/technology/",
+      "context": "Demand for AI infrastructure is pushing cloud providers to scale computing, data services, and enterprise deployments."
+    },
+    {
+      "title": "Startups push new tools to automate analysis, coding, and decision support",
+      "source": "VentureBeat",
+      "published": "2026-11-12T05:40:00Z",
+      "url": "https://venturebeat.com/",
+      "context": "Product teams are racing to build more capable AI tools as businesses look for efficiency gains and faster workflows."
+    },
+    {
+      "title": "Chipmakers and cloud vendors watch AI demand and supply constraints closely",
+      "source": "Bloomberg",
+      "published": "2026-11-12T05:05:00Z",
+      "url": "https://www.bloomberg.com/technology",
+      "context": "The hardware ecosystem remains focused on capacity expansion, supply resilience, and product roadmaps tied to AI demand."
+    },
+    {
+      "title": "NVIDIA and major AI platform players remain central to the chip roadmap conversation",
+      "source": "CNBC",
+      "published": "2026-11-12T04:30:00Z",
+      "url": "https://www.cnbc.com/technology/",
+      "context": "Industry watchers are monitoring supply chain constraints, pricing, and strategic positioning as AI hardware demand continues to accelerate."
+    },
+    {
+      "title": "NVIDIA leadership and strategy continue to shape the generative AI hardware race",
+      "source": "Reuters",
+      "published": "2026-11-12T04:00:00Z",
+      "url": "https://www.reuters.com/technology/",
+      "context": "Executives and investors are watching how design, supply, and product leadership decisions influence the broader AI infrastructure market and competitor response."
+    }
+  ],
+  "business-economy": [
+    {
+      "title": "Central banks watch inflation and growth data for policy signals",
+      "source": "Financial Times",
+      "published": "2026-11-12T09:20:00Z",
+      "url": "https://www.ft.com/world",
+      "context": "Economists expect policy decisions to remain sensitive to inflation trends, demand conditions, and the pace of global growth."
+    },
+    {
+      "title": "Global supply chains remain alert as demand shifts across major markets",
+      "source": "Reuters",
+      "published": "2026-11-12T08:20:00Z",
+      "url": "https://www.reuters.com/business/",
+      "context": "Manufacturers and retailers are adjusting to uneven demand, freight variability, and tighter operational planning in global trade."
+    },
+    {
+      "title": "Investors assess earnings resilience as markets look for direction",
+      "source": "Bloomberg",
+      "published": "2026-11-12T07:20:00Z",
+      "url": "https://www.bloomberg.com/markets",
+      "context": "Stock and bond markets are weighing earnings quality, rate expectations, and sector-specific pressure as the next quarter begins."
+    },
+    {
+      "title": "Trade and manufacturing activity stays mixed across major regions",
+      "source": "CNBC",
+      "published": "2026-11-12T06:20:00Z",
+      "url": "https://www.cnbc.com/world/",
+      "context": "Business surveys show unevenness in manufacturing and trade activity, with companies balancing demand, supply, and cost pressure."
+    },
+    {
+      "title": "Currency and bond markets watch yields and growth expectations closely",
+      "source": "MarketWatch",
+      "published": "2026-11-12T05:50:00Z",
+      "url": "https://www.marketwatch.com/",
+      "context": "Investors remain focused on yields, growth signals, and macro stability as markets adjust policy expectations."
+    }
+  ],
+  "science-space": [
+    {
+      "title": "Researchers track climate risks and adaptation strategies as extreme weather rises",
+      "source": "NASA Earth Observatory",
+      "published": "2026-11-12T09:05:00Z",
+      "url": "https://earthobservatory.nasa.gov/",
+      "context": "Scientists continue mapping climate stress, volatility, and resilience strategies as extreme weather events grow in frequency and intensity."
+    },
+    {
+      "title": "Space missions expand scientific understanding of orbit and lunar resources",
+      "source": "Space.com",
+      "published": "2026-11-12T08:05:00Z",
+      "url": "https://www.space.com/",
+      "context": "New missions are deepening research into orbital systems, lunar resources, and the operational challenges of sustained space exploration."
+    },
+    {
+      "title": "Scientific collaborations aim to improve forecasting and resilience in complex systems",
+      "source": "Nature",
+      "published": "2026-11-12T07:05:00Z",
+      "url": "https://www.nature.com/",
+      "context": "Researchers are joining forces to improve climate and systems forecasting, with a focus on climate adaptation and predictive modeling."
+    },
+    {
+      "title": "Climate and ocean research remain central to resilience planning",
+      "source": "NOAA",
+      "published": "2026-11-12T06:05:00Z",
+      "url": "https://www.noaa.gov/",
+      "context": "Agencies are prioritizing predictive science and adaptation strategies as climate and ocean variability become more difficult to manage."
+    },
+    {
+      "title": "Space agencies watch launch schedules, orbital traffic, and research demand",
+      "source": "ESA",
+      "published": "2026-11-12T05:20:00Z",
+      "url": "https://www.esa.int/",
+      "context": "Space programs are balancing launch cadence, orbital safety, and scientific returns as more missions become operationally active."
+    }
+  ],
+  "politics-geopolitics": [
+    {
+      "title": "Diplomatic channels stay active as governments weigh next steps",
+      "source": "BBC News",
+      "published": "2026-11-12T09:15:00Z",
+      "url": "https://www.bbc.com/news/world",
+      "context": "Officials are continuing diplomacy and negotiation efforts as governments try to reduce pressure while managing strategic and security priorities."
+    },
+    {
+      "title": "Election calendars and coalition talks shape political attention in key regions",
+      "source": "CNN",
+      "published": "2026-11-12T08:15:00Z",
+      "url": "https://www.cnn.com/world",
+      "context": "Politics is increasingly shaped by electoral schedules, coalition-building, and how parties are positioning themselves ahead of major decisions."
+    },
+    {
+      "title": "Security and trade policy remain central to bargaining and strategy",
+      "source": "Al Jazeera",
+      "published": "2026-11-12T07:15:00Z",
+      "url": "https://www.aljazeera.com/",
+      "context": "Governments are weighing security, trade, and diplomacy together as they try to stabilize partnerships and reduce strategic friction."
+    },
+    {
+      "title": "Regional alliances and sanctions remain central to diplomatic calculations",
+      "source": "Reuters",
+      "published": "2026-11-12T06:15:00Z",
+      "url": "https://www.reuters.com/world/",
+      "context": "Diplomatic partners are re-evaluating coalitions, sanctions, and negotiation leverage as strategic pressure remains elevated."
+    },
+    {
+      "title": "Public trust and governance debates intensify amid policy pressure",
+      "source": "The Guardian",
+      "published": "2026-11-12T05:35:00Z",
+      "url": "https://www.theguardian.com/world",
+      "context": "Political scrutiny is rising as public trust, institutional performance, and response capacity come under increasing pressure."
+    }
+  ]
+}
