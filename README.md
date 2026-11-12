@@ -1,5 +1,7 @@
 # The Daily Pulse — Global & AI News Dashboard
 
+[![CI](https://github.com/ravichandra-k/news/actions/workflows/ci.yml/badge.svg)](https://github.com/ravichandra-k/news/actions/workflows/ci.yml)
+
 A small local web app for recent world, India, AI, business, science, and geopolitics headlines.
 It has a **React + TypeScript** frontend (Vite) and a small **FastAPI** backend. It was converted from the original
 single-file Streamlit app.
@@ -34,12 +36,15 @@ cannot read the Google News RSS feed directly (it does not allow cross-origin re
 
 ```text
 .
+├── .github/workflows/ci.yml      CI: frontend lint and build, backend tests
 ├── api/                          FastAPI backend (Python)
 │   ├── main.py                   App, routes, and hosting of the built UI (web/dist)
 │   ├── news.py                   Google News RSS fetch/parse, 10-minute cache, fallback
 │   ├── briefing.py               Optional OpenAI briefing
 │   ├── models.py                 Request/response schemas (camelCase JSON)
 │   └── fallback_headlines.json   Backup headlines used when the live feed is unavailable
+├── tests/
+│   └── test_api.py               Backend tests (offline: Google News and OpenAI are faked)
 ├── web/                          React + TypeScript frontend (Vite)
 │   ├── src/
 │   │   ├── App.tsx               Page layout, data loading, and state
@@ -48,7 +53,8 @@ cannot read the Google News RSS feed directly (it does not allow cross-origin re
 │   │   ├── components/           Sidebar, StoryCarousel, BriefingPanel, Status
 │   │   └── index.css             Dark theme (ported from the Streamlit custom CSS)
 │   └── vite.config.ts            Dev server and /api proxy
-└── requirements.txt              Python dependencies
+├── requirements.txt              Python dependencies
+└── requirements-dev.txt          Python dependencies plus test tools (pytest)
 ```
 
 ## Prerequisites
@@ -108,6 +114,28 @@ startup. Add `--host 0.0.0.0` to make it reachable from other devices on your ne
 | `web/` | `npm run lint`                                     | Lint the frontend with Oxlint                            |
 | `web/` | `npm run preview`                                  | Preview the production build (also proxies `/api`)       |
 | root   | `uvicorn api.main:app --reload --reload-dir api`   | Run the API with auto-reload                             |
+| root   | `python -m pytest`                                 | Run the backend tests (needs `requirements-dev.txt`)     |
+
+## Tests and CI
+
+GitHub Actions runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml) on every push and on pull requests to
+`main`. You can also start it manually from the repository's **Actions** tab.
+
+- **Frontend:** `npm ci`, `npm run lint` (Oxlint), and `npm run build` (TypeScript type-check and Vite build) on
+  Node.js 24.
+- **Backend:** installs `requirements-dev.txt` and runs `python -m pytest` on Python 3.10 and 3.13. The tests in
+  `tests/` replace Google News and OpenAI with fakes, so they need no network access or API key.
+
+Run the same checks locally before pushing:
+
+```bash
+pip install -r requirements-dev.txt   # in the activated virtual environment
+python -m pytest
+
+cd web
+npm run lint
+npm run build
+```
 
 ## API
 
@@ -169,3 +197,6 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
 - **uvicorn reports "Address already in use".** Another process is using port 8000. Stop it, or start the API with
   another `--port` and update the proxy target in `web/vite.config.ts` to match. (Vite automatically moves to the next
   free port if 5173 is taken and prints the URL to open.)
+- **`git push` is rejected with "refusing to allow a Personal Access Token to create or update workflow".** Your
+  token is not allowed to change files in `.github/workflows/`. Edit the token on GitHub to add **Workflows: Read and
+  write** (fine-grained token) or the `workflow` scope (classic token), then push again.
