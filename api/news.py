@@ -37,6 +37,7 @@ class NewsCategory:
 CATEGORIES = (
     NewsCategory("world", "Top World News", "world news"),
     NewsCategory("india", "India", "India news"),
+    NewsCategory("ipl", "IPL", "Indian Premier League cricket news"),
     NewsCategory("ai-technology", "AI & Technology", "AI technology news"),
     NewsCategory("business-economy", "Business & Economy", "global business economy news"),
     NewsCategory("science-space", "Science & Space", "science space news"),
