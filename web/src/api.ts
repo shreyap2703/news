@@ -4,6 +4,7 @@ export interface NewsQuery {
   category: string
   hours: number
   limit: number
+  search?: string
   /** Ask the API to clear its 10-minute cache before fetching. */
   refresh?: boolean
 }
@@ -49,8 +50,9 @@ export function fetchCategories(signal?: AbortSignal): Promise<Category[]> {
   return request<Category[]>('/api/categories', { signal })
 }
 
-export function fetchNews({ category, hours, limit, refresh = false }: NewsQuery, signal?: AbortSignal): Promise<NewsResponse> {
+export function fetchNews({ category, hours, limit, search, refresh = false }: NewsQuery, signal?: AbortSignal): Promise<NewsResponse> {
   const params = new URLSearchParams({ category, hours: String(hours), limit: String(limit) })
+  if (search && search.trim()) params.set('q', search.trim())
   if (refresh) params.set('refresh', 'true')
   return request<NewsResponse>(`/api/news?${params}`, { signal })
 }

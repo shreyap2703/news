@@ -19,15 +19,6 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
 
   return (
     <div className="carousel">
-      <div className="carousel-nav">
-        <button type="button" className="button" onClick={() => step(-1)}>
-          ← Previous
-        </button>
-        <button type="button" className="button" onClick={() => step(1)}>
-          Next →
-        </button>
-      </div>
-
       <article className="news-card story">
         <p className="news-meta">
           {article.source} · {article.language}
@@ -46,6 +37,15 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
           </a>
         )}
       </article>
+
+      <div className="carousel-nav">
+        <button type="button" className="button" onClick={() => step(-1)}>
+          ← Previous
+        </button>
+        <button type="button" className="button" onClick={() => step(1)}>
+          Next →
+        </button>
+      </div>
 
       <p className="caption" aria-live="polite">
         Story {current + 1} of {total}
