@@ -37,6 +37,7 @@ class NewsCategory:
 CATEGORIES = (
     NewsCategory("world", "Top World News", "world news"),
     NewsCategory("india", "India", "India news"),
+    NewsCategory("ipl", "IPL", "Indian Premier League cricket news"),
     NewsCategory("ai-technology", "AI & Technology", "AI technology news"),
     NewsCategory("business-economy", "Business & Economy", "global business economy news"),
     NewsCategory("science-space", "Science & Space", "science space news"),
@@ -63,28 +64,33 @@ _CONTEXT_RULES = (
     (
         re.compile(r"\b(market|inflation|economy|trade)", re.IGNORECASE),
         "Markets and policymakers are tracking this issue closely, with attention on growth, pricing, "
-        "and how the story may affect business conditions and regional stability.",
+        "and how the story may affect business conditions and regional stability. The outcome could "
+        "shape company planning, consumer confidence, and the broader economic outlook in the coming days.",
     ),
     (
         # "ai" must be a whole word so headlines containing "said" or "Ukraine" are not tagged as tech.
         re.compile(r"\b(ai\b|technology|model|software|digital)", re.IGNORECASE),
         "Technology leaders are following this development because it could shape adoption, competition, "
-        "and the pace of innovation across the digital economy.",
+        "and the pace of innovation across the digital economy. Analysts are also watching how it may "
+        "affect investment, product strategy, and public trust in new tools and platforms.",
     ),
     (
         re.compile(r"\b(election|government|diplomacy|policy|politics)", re.IGNORECASE),
         "The story is being watched closely in political and policy circles because it may affect public "
-        "trust, government action, and diplomatic positioning.",
+        "trust, government action, and diplomatic positioning. The broader impact could include new "
+        "debates over leadership, accountability, and how institutions respond to pressure.",
     ),
     (
         re.compile(r"\b(space|science|research|climate|weather)", re.IGNORECASE),
         "Researchers and public agencies are monitoring this development because it could influence "
-        "scientific understanding, safety planning, and long-term resilience.",
+        "scientific understanding, safety planning, and long-term resilience. The wider significance may "
+        "extend to forecasting, infrastructure, and how communities prepare for change.",
     ),
     (
         re.compile(r"\b(india|regional|infrastructure|development)", re.IGNORECASE),
         "This story matters for local planning and regional momentum, with attention on growth, services, "
-        "and how policy decisions affect daily life.",
+        "and how policy decisions affect daily life. It may also signal how communities, businesses, and "
+        "officials respond to the next phase of infrastructure and investment priorities.",
     ),
 )
 
@@ -96,9 +102,9 @@ _cache: dict[tuple[str, int], tuple[float, NewsResult]] = {}
 _cache_lock = threading.Lock()
 
 
-def get_news(category: NewsCategory, hours: int, limit: int, refresh: bool = False) -> NewsResult:
+def get_news(category: NewsCategory, hours: int, limit: int, refresh: bool = False, search: Optional[str] = None) -> NewsResult:
     """Return up to ``limit`` headlines, served from cache for up to 10 minutes unless ``refresh`` is set."""
-    key = (category.id, hours)
+    key = (category.id, hours, (search or '').strip().lower())
     with _cache_lock:
         if refresh:
             _cache.clear()
@@ -107,7 +113,7 @@ def get_news(category: NewsCategory, hours: int, limit: int, refresh: bool = Fal
     if cached is not None and cached[0] > time.monotonic():
         result = cached[1]
     else:
-        live_articles = fetch_google_news(category, hours)
+        live_articles = fetch_google_news(category, hours, search=search)
         if live_articles:
             result, ttl = NewsResult(tuple(live_articles), using_fallback=False), CACHE_TTL_SECONDS
         else:
@@ -119,17 +125,18 @@ def get_news(category: NewsCategory, hours: int, limit: int, refresh: bool = Fal
     return NewsResult(result.articles[:limit], result.using_fallback)
 
 
-def google_news_url(topic: str, hours: int) -> str:
+def google_news_url(topic: str, hours: int, search: Optional[str] = None) -> str:
     window = f"{hours // 24}d" if hours % 24 == 0 else f"{hours}h"
-    query = urlencode({"q": f"{topic} when:{window}", "hl": "en-US", "gl": "US", "ceid": "US:en"})
+    q = search.strip() if search and search.strip() else topic
+    query = urlencode({"q": f"{q} when:{window}", "hl": "en-US", "gl": "US", "ceid": "US:en"})
     return f"{GOOGLE_NEWS_RSS_URL}?{query}"
 
 
-def fetch_google_news(category: NewsCategory, hours: int) -> list[Article]:
+def fetch_google_news(category: NewsCategory, hours: int, search: Optional[str] = None) -> list[Article]:
     """Fetch English headlines from Google News RSS; returns an empty list when the feed is unavailable."""
     try:
         response = requests.get(
-            google_news_url(category.topic, hours),
+            google_news_url(category.topic, hours, search),
             timeout=REQUEST_TIMEOUT_SECONDS,
             headers={"User-Agent": "Mozilla/5.0"},
         )
@@ -186,12 +193,22 @@ def display_title(title: str, source: str, url: str) -> str:
 
 
 def build_context(title: str, category_label: str) -> str:
-    for pattern, context in _CONTEXT_RULES:
-        if pattern.search(title):
-            return context
+    clean_title = re.sub(r"\s+", " ", (title or "").strip())
+    clean_title = re.sub(r"^(?:live|latest|breaking|top|news|update|report|reports)\s*[-:–—]?", "", clean_title, flags=re.IGNORECASE)
+    clean_title = re.sub(r"^(?:[A-Za-z0-9 &.]+?)\s+-\s+", "", clean_title, count=1)
+    clean_title = clean_title.strip().strip("-:–—")
+
+    if not clean_title:
+        return (
+            f"This report follows {category_label.lower()} developments and highlights what is changing, who is affected, "
+            "and why the update matters right now."
+        )
+
+    if len(clean_title) > 140:
+        clean_title = clean_title[:137].rstrip() + "..."
+
     return (
-        f"This developing update is relevant to {category_label.lower()} coverage and is being watched "
-        "for broader economic, political, or social impact."
+        f"The article focuses on {clean_title.lower()}. It explains what changed, who is involved, and why the development is drawing attention now. It also highlights the immediate consequences for security, public confidence, markets, or political decision-making. The story matters because the outcome could shape reactions from governments, communities, and institutions in the coming hours and days."
     )
 
 

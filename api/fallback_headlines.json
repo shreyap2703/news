@@ -248,5 +248,42 @@
       "url": "https://www.theguardian.com/world",
       "context": "Political scrutiny is rising as public trust, institutional performance, and response capacity come under increasing pressure."
     }
+  ],
+  "ipl": [
+    {
+      "title": "IPL teams sharpen plans as the tournament schedule and squad strategy take center stage",
+      "source": "ESPNcricinfo",
+      "published": "2026-11-12T09:40:00Z",
+      "url": "https://www.espncricinfo.com/",
+      "context": "Cricket fans and franchises are monitoring team strategy, player availability, and tactical adjustments as the competition continues to shape its biggest talking points."
+    },
+    {
+      "title": "Franchise owners and coaches weigh squad balance after a busy transfer window",
+      "source": "Cricket.com",
+      "published": "2026-11-12T08:40:00Z",
+      "url": "https://www.cricket.com/",
+      "context": "The IPL landscape is being watched closely as teams rethink combinations, roles, and matchups to stay competitive through the season."
+    },
+    {
+      "title": "Star players remain in focus as form, fitness, and match-ups decide the next phase",
+      "source": "Times of India",
+      "published": "2026-11-12T07:40:00Z",
+      "url": "https://timesofindia.indiatimes.com/sports/cricket/ipl",
+      "context": "Performance trends and fitness updates are driving attention across the league, with coaches and analysts studying individual form and team chemistry."
+    },
+    {
+      "title": "IPL broadcasters and sponsors track fan interest as the season reaches a decisive stretch",
+      "source": "The Hindu BusinessLine",
+      "published": "2026-11-12T06:40:00Z",
+      "url": "https://www.thehindubusinessline.com/",
+      "context": "Commercial interest remains strong as franchise performance, audience demand, and scheduling shape the broader IPL conversation for brands and broadcasters."
+    },
+    {
+      "title": "Young talent and experienced captains continue to drive the league’s biggest storylines",
+      "source": "Indian Express",
+      "published": "2026-11-12T05:55:00Z",
+      "url": "https://indianexpress.com/sports/cricket/",
+      "context": "Player development and leadership decisions are shaping how teams adapt to pressure moments and aggressive match plans in the competition."
+    }
   ]
 }
