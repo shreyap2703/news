@@ -129,10 +129,6 @@ export default function App() {
           </div>
         </header>
         <p className="caption">A global news and AI intelligence dashboard · headlines refreshed every 10 minutes</p>
-        <div className="info-banner">
-          Headlines are gathered from the public Google News RSS feed in English. We always recommend opening the
-          original article for full context.
-        </div>
 
         {categoriesError && <Alert kind="error">Could not load news sections: {categoriesError}</Alert>}
         {loading && <Spinner label="Gathering recent headlines..." />}
