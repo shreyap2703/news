@@ -1,17 +1,35 @@
 """FastAPI entry point: JSON API for the React app, plus the built UI when web/dist exists."""
 
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Annotated
 
 import openai
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.types import Scope
 
 from .briefing import summarize_headlines
 from .models import BriefingRequest, BriefingResponse, Category, NewsResponse
 from .news import CATEGORIES, CATEGORIES_BY_ID, NewsCategory, get_news
 
 WEB_DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
+
+
+class SinglePageApp(StaticFiles):
+    """Serves the built UI. Client-side routes such as /login get index.html, so reloading those pages works."""
+
+    async def get_response(self, path: str, scope: Scope) -> Response:
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            # Unknown /api paths and missing files (names with an extension) keep their 404.
+            requested = PurePath(path)
+            if exc.status_code != 404 or requested.parts[:1] == ("api",) or "." in requested.name:
+                raise
+            return await super().get_response("index.html", scope)
+
 
 app = FastAPI(
     title="The Daily Pulse API",
@@ -77,7 +95,7 @@ def create_briefing(request: BriefingRequest) -> BriefingResponse:
 
 # Registered last so the /api routes above take precedence over the static files.
 if WEB_DIST_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=WEB_DIST_DIR, html=True), name="web")
+    app.mount("/", SinglePageApp(directory=WEB_DIST_DIR, html=True), name="web")
 else:
 
     @app.get("/", include_in_schema=False)
