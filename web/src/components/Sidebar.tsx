@@ -13,11 +13,9 @@ interface SidebarProps {
   category: string
   hours: number
   limit: number
-  apiKey: string
   onCategoryChange: (category: string) => void
   onHoursChange: (hours: number) => void
   onLimitChange: (limit: number) => void
-  onApiKeyChange: (apiKey: string) => void
   onRefresh: () => void
 }
 
@@ -26,11 +24,9 @@ export default function Sidebar({
   category,
   hours,
   limit,
-  apiKey,
   onCategoryChange,
   onHoursChange,
   onLimitChange,
-  onApiKeyChange,
   onRefresh,
 }: SidebarProps) {
   return (
@@ -78,23 +74,6 @@ export default function Sidebar({
       </label>
 
       <span className="chip">English-only mode</span>
-
-      <hr className="divider" />
-
-      <h3 className="sidebar-subtitle">AI briefing</h3>
-      <label className="field">
-        <span className="field-label">OpenAI API key</span>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(event) => onApiKeyChange(event.target.value)}
-          placeholder="sk-..."
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <span className="field-help">Used only for this session. It is not saved by this app.</span>
-      </label>
-      <p className="caption">Headlines load without a key; it is only needed for the AI briefing.</p>
 
       <button type="button" className="button button-block" onClick={onRefresh}>
         Refresh headlines

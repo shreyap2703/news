@@ -48,10 +48,11 @@ def read_news(
     category: Annotated[str, Query(description="Section id from /api/categories.")],
     hours: Annotated[int, Query(ge=1, le=168, description="Look-back window in hours.")] = 24,
     limit: Annotated[int, Query(ge=1, le=50, description="Maximum number of headlines.")] = 30,
+    q: Annotated[str | None, Query(description="Optional search term to override the default category topic.")] = None,
     refresh: Annotated[bool, Query(description="Clear the 10-minute cache and fetch again.")] = False,
 ) -> NewsResponse:
     news_category = _find_category(category)
-    result = get_news(news_category, hours, limit, refresh=refresh)
+    result = get_news(news_category, hours, limit, refresh=refresh, search=q)
     return NewsResponse(
         category=_to_api_category(news_category),
         hours=hours,
