@@ -8,7 +8,7 @@ export function Spinner({ label }: { label: string }) {
   )
 }
 
-export function Alert({ kind, children }: { kind: 'warning' | 'error'; children: ReactNode }) {
+export function Alert({ kind, children }: { kind: 'success' | 'warning' | 'error'; children: ReactNode }) {
   return (
     <div className={`alert alert-${kind}`} role={kind === 'error' ? 'alert' : 'status'}>
       {children}
