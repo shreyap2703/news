@@ -16,8 +16,8 @@ export default function NewsPage() {
   const [categoriesError, setCategoriesError] = useState<string | null>(null)
   const [categoriesAttempt, setCategoriesAttempt] = useState(0)
   const [query, setQuery] = useState<NewsQuery>({ category: '', hours: 24, limit: 30 })
-  const [searchInput, setSearchInput] = useState('')
   const [submittedSearch, setSubmittedSearch] = useState('')
+  const [searchVersion, setSearchVersion] = useState(0)
   const [news, setNews] = useState<LoadedNews | null>(null)
   const [newsError, setNewsError] = useState<string | null>(null)
   const [settledQuery, setSettledQuery] = useState<NewsQuery | null>(null)
@@ -36,6 +36,18 @@ export default function NewsPage() {
   }, [categoriesAttempt])
 
   useEffect(() => {
+    const handleSearchFromNav = (event: Event) => {
+      const detail = (event as CustomEvent<string | undefined>).detail ?? ''
+      const next = String(detail).trim()
+      setSubmittedSearch(next)
+      setSearchVersion((value) => value + 1)
+    }
+
+    window.addEventListener('news-search', handleSearchFromNav)
+    return () => window.removeEventListener('news-search', handleSearchFromNav)
+  }, [])
+
+  useEffect(() => {
     if (!query.category) return
     const controller = new AbortController()
     const activeSearch = submittedSearch.trim()
@@ -52,7 +64,7 @@ export default function NewsPage() {
         setSettledQuery({ ...query, search: activeSearch || undefined })
       })
     return () => controller.abort()
-  }, [query, submittedSearch])
+  }, [query, submittedSearch, searchVersion])
 
   // Previous results stay visible (dimmed) while a new request is in flight.
   const loading =
@@ -69,7 +81,6 @@ export default function NewsPage() {
 
   const handleCategoryChange = (category: string) => {
     setSubmittedSearch('')
-    setSearchInput('')
     updateQuery({ category })
   }
 
@@ -79,11 +90,6 @@ export default function NewsPage() {
       setCategoriesAttempt((attempt) => attempt + 1)
     }
     setQuery((current) => ({ ...current, refresh: true }))
-  }
-
-  const handleSearchSubmit = () => {
-    const trimmed = searchInput.trim()
-    setSubmittedSearch(trimmed)
   }
 
   const activeSearch = submittedSearch.trim()
@@ -110,23 +116,6 @@ export default function NewsPage() {
             🌍
           </div>
           <h1>The Daily Pulse</h1>
-
-          <div className="header-search">
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search topics..."
-              autoComplete="off"
-              spellCheck={false}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') handleSearchSubmit()
-              }}
-            />
-            <button type="button" className="button" onClick={handleSearchSubmit}>
-              Search
-            </button>
-          </div>
         </header>
         <p className="caption">A global news and AI intelligence dashboard · headlines refreshed every 10 minutes</p>
 

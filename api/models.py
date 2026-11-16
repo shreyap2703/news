@@ -22,6 +22,7 @@ class Article(ApiModel):
     url: str
     language: str = "en"
     context: str
+    image_url: str = ""
 
 
 class NewsResponse(ApiModel):
