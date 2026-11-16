@@ -11,8 +11,8 @@ from starlette.responses import Response
 from starlette.types import Scope
 
 from .briefing import summarize_headlines
-from .models import BriefingRequest, BriefingResponse, Category, NewsResponse
-from .news import CATEGORIES, CATEGORIES_BY_ID, NewsCategory, get_news
+from .models import Article, BriefingRequest, BriefingResponse, Category, NewsResponse
+from .news import CATEGORIES, CATEGORIES_BY_ID, NewsCategory, get_news, get_story_summary
 
 WEB_DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
@@ -77,6 +77,17 @@ def read_news(
         articles=list(result.articles),
         using_fallback=result.using_fallback,
     )
+
+
+@app.get("/api/news/summary")
+def read_story_summary(
+    url: Annotated[str, Query(description="Article URL from a recent /api/news response.")],
+) -> Article:
+    """Return the story with a short summary combined from several outlets' coverage of it."""
+    article = get_story_summary(url)
+    if article is None:
+        raise HTTPException(status_code=404, detail="Unknown story. Only stories listed by /api/news can be summarized.")
+    return article
 
 
 @app.post("/api/briefing")
