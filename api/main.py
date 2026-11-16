@@ -34,7 +34,7 @@ class SinglePageApp(StaticFiles):
 app = FastAPI(
     title="The Daily Pulse API",
     version="1.0.0",
-    description="Recent headlines from Google News RSS with an optional OpenAI briefing.",
+    description="Recent headlines with a NewsAPI-first source and a Google News RSS fallback for backup.",
 )
 
 

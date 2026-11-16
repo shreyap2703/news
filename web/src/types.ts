@@ -11,6 +11,7 @@ export interface Article {
   url: string
   language: string
   context: string
+  imageUrl?: string
 }
 
 export interface NewsResponse {
