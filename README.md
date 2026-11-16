@@ -239,3 +239,14 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
   **Redirect URLs** in Supabase (step 3 of [Set up accounts](#set-up-accounts-supabase)).
 - **Sign-up fails with "Database error saving new user", or the profile page says "The profiles table was not
   found".** The SQL migration has not been run in this Supabase project, or it failed. Run it in the SQL Editor.
+
+## News image source
+
+For real article thumbnails, set a NewsAPI key before starting the backend:
+
+```bash
+export NEWSAPI_KEY="your_key_here"
+uvicorn api.main:app --reload --reload-dir api --port 8000
+```
+
+When the key is absent, the app falls back to Google News RSS so the dashboard still works without a paid API subscription.

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Article } from '../types.ts'
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
@@ -11,14 +11,27 @@ function formatPublished(value: string): string {
 export default function StoryCarousel({ articles }: { articles: Article[] }) {
   const [index, setIndex] = useState(0)
   const total = articles.length
-  // Like the original app, fall back to the first story when the list shrinks below the current position.
+  useEffect(() => {
+    setIndex(0)
+  }, [articles])
+
   const current = index < total ? index : 0
   const article = articles[current]
+  if (!article) return null
 
   const step = (offset: number) => setIndex((previous) => ((previous < total ? previous : 0) + offset + total) % total)
 
   return (
     <div className="carousel">
+      <div className="carousel-nav">
+        <button type="button" className="button carousel-nav-button" onClick={() => step(-1)}>
+          ← Previous
+        </button>
+        <button type="button" className="button carousel-nav-button" onClick={() => step(1)}>
+          Next →
+        </button>
+      </div>
+
       <article className="news-card story">
         <p className="news-meta">
           {article.source} · {article.language}
@@ -30,6 +43,9 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
           )}
         </p>
         <h3 className="story-title">{article.title}</h3>
+        {article.imageUrl && (
+          <img className="story-image" src={article.imageUrl} alt={article.title} loading="lazy" />
+        )}
         <p className="story-context">{article.context}</p>
         {article.url && (
           <a className="story-link" href={article.url} target="_blank" rel="noopener noreferrer">
@@ -37,15 +53,6 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
           </a>
         )}
       </article>
-
-      <div className="carousel-nav">
-        <button type="button" className="button" onClick={() => step(-1)}>
-          ← Previous
-        </button>
-        <button type="button" className="button" onClick={() => step(1)}>
-          Next →
-        </button>
-      </div>
 
       <p className="caption" aria-live="polite">
         Story {current + 1} of {total}
