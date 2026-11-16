@@ -3,6 +3,7 @@ import { errorMessage, fetchCategories, fetchNews, type NewsQuery } from '../api
 import Sidebar from '../components/Sidebar.tsx'
 import { Alert, Spinner } from '../components/Status.tsx'
 import StoryCarousel from '../components/StoryCarousel.tsx'
+import { loadFilters, saveFilters } from '../filters.ts'
 import type { Category, NewsResponse } from '../types.ts'
 
 interface LoadedNews {
@@ -12,10 +13,13 @@ interface LoadedNews {
 }
 
 export default function NewsPage() {
+  // Read once, so a page reload comes back to the section and filters chosen before it.
+  const [savedFilters] = useState(loadFilters)
   const [categories, setCategories] = useState<Category[]>([])
   const [categoriesError, setCategoriesError] = useState<string | null>(null)
   const [categoriesAttempt, setCategoriesAttempt] = useState(0)
-  const [query, setQuery] = useState<NewsQuery>({ category: '', hours: 24, limit: 30 })
+  // The section is picked once the list arrives, so a saved one that no longer exists is never requested.
+  const [query, setQuery] = useState<NewsQuery>({ ...savedFilters, category: '' })
   const [submittedSearch, setSubmittedSearch] = useState('')
   const [searchVersion, setSearchVersion] = useState(0)
   const [news, setNews] = useState<LoadedNews | null>(null)
@@ -27,13 +31,22 @@ export default function NewsPage() {
     fetchCategories(controller.signal)
       .then((items) => {
         setCategories(items)
-        setQuery((current) => (current.category || items.length === 0 ? current : { ...current, category: items[0].id }))
+        setQuery((current) => {
+          if (current.category || items.length === 0) return current
+          const saved = items.find((item) => item.id === savedFilters.category)
+          return { ...current, category: (saved ?? items[0]).id }
+        })
       })
       .catch((error: unknown) => {
         if (!controller.signal.aborted) setCategoriesError(errorMessage(error))
       })
     return () => controller.abort()
-  }, [categoriesAttempt])
+  }, [categoriesAttempt, savedFilters.category])
+
+  useEffect(() => {
+    // Nothing is saved until a section is picked, so the saved choices survive the first render after a reload.
+    if (query.category) saveFilters({ category: query.category, hours: query.hours, limit: query.limit })
+  }, [query.category, query.hours, query.limit])
 
   useEffect(() => {
     const handleSearchFromNav = (event: Event) => {
@@ -93,9 +106,10 @@ export default function NewsPage() {
   }
 
   const activeSearch = submittedSearch.trim()
+  // The no-break space keeps the dash on the first line when the title wraps on narrow screens.
   const sectionTitle = activeSearch
     ? `Latest headlines on ${activeSearch}`
-    : `${news?.data.category.label ?? 'Latest'} — latest headlines`
+    : `${news?.data.category.label ?? 'Latest'}\u00a0— latest headlines`
 
   return (
     <div className="dashboard">

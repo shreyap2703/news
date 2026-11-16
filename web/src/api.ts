@@ -1,4 +1,4 @@
-import type { BriefingResponse, Category, NewsResponse } from './types.ts'
+import type { Article, BriefingResponse, Category, NewsResponse } from './types.ts'
 
 export interface NewsQuery {
   category: string
@@ -55,6 +55,11 @@ export function fetchNews({ category, hours, limit, search, refresh = false }: N
   if (search && search.trim()) params.set('q', search.trim())
   if (refresh) params.set('refresh', 'true')
   return request<NewsResponse>(`/api/news?${params}`, { signal })
+}
+
+/** Returns the story with a short summary built from several outlets' coverage of it. */
+export function fetchStorySummary(url: string, signal?: AbortSignal): Promise<Article> {
+  return request<Article>(`/api/news/summary?${new URLSearchParams({ url })}`, { signal })
 }
 
 export function createBriefing(
