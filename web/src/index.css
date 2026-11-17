@@ -9,7 +9,7 @@
   --surface-raised: rgba(19, 35, 59, 0.9);
   --accent: #38bdf8;
   --accent-soft: #7dd3fc;
-  --navbar-height: 6rem;
+  --navbar-height: 5rem;
 
   color-scheme: dark;
   color: var(--text);
@@ -47,7 +47,7 @@ select {
 
 .dashboard {
   display: grid;
-  grid-template-columns: 21rem minmax(0, 1fr);
+  grid-template-columns: clamp(16rem, 24vw, 21rem) minmax(0, 1fr);
   min-height: calc(100vh - var(--navbar-height));
 }
 
@@ -66,7 +66,8 @@ select {
 
 .main {
   min-width: 0;
-  padding: 1.5rem clamp(1rem, 5vw, 5rem) 3rem;
+  /* Side padding grows on very wide screens so the stories never stretch past 76rem. */
+  padding: 1.5rem max(clamp(1rem, 5vw, 5rem), (100% - 76rem) / 2) 3rem;
 }
 
 /* Navigation bar */
@@ -76,7 +77,9 @@ select {
   top: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* Equal side columns keep the masthead centred; each can still grow to fit its content, so nothing overlaps. */
+  grid-template-columns: minmax(min-content, 1fr) auto minmax(min-content, 1fr);
+  grid-template-areas: 'links brand actions';
   align-items: center;
   gap: 0.9rem;
   height: var(--navbar-height);
@@ -84,6 +87,11 @@ select {
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
   background: rgba(5, 13, 24, 0.85);
   backdrop-filter: blur(14px);
+  transition: box-shadow 0.2s ease;
+}
+
+.navbar.is-scrolled {
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
 }
 
 .navbar-menu {
@@ -109,6 +117,7 @@ select {
 }
 
 .navbar-links {
+  grid-area: links;
   display: flex;
   align-items: center;
   justify-self: start;
@@ -119,15 +128,22 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1.2rem;
+  padding: 0.65rem 1.1rem;
   border-radius: 0.9rem;
   background: rgba(56, 189, 248, 0.1);
   color: var(--text-strong);
   font-weight: 700;
   text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease;
+}
+
+.navbar-link:hover {
+  background: rgba(56, 189, 248, 0.18);
 }
 
 .navbar-brand-wrap {
+  grid-area: brand;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -144,12 +160,12 @@ select {
 .navbar-brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   min-width: 0;
   color: var(--text-strong);
-  font-size: clamp(2.7rem, 3vw, 4.5rem);
-  font-weight: 900;
-  letter-spacing: -0.06em;
+  font-size: clamp(1.6rem, 1rem + 1.1vw, 2.35rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
@@ -164,30 +180,39 @@ select {
 .navbar-logo {
   display: inline-flex;
   flex-shrink: 0;
-  width: 2rem;
   justify-content: center;
   align-items: center;
-  font-size: 2.1rem;
+  font-size: 0.9em;
+}
+
+/* If space ever runs out, the title ends in an ellipsis instead of running into the buttons. The block padding keeps
+   the descender of the "y" from being clipped at line-height 1. */
+.navbar-brand-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-block: 0.12em;
 }
 
 .navbar-actions {
+  grid-area: actions;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 0.75rem;
   min-width: 0;
   flex-wrap: nowrap;
-  justify-self: end;
+  justify-self: stretch;
 }
 
 .navbar-search {
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  flex: 0 0 17rem;
-  max-width: 17rem;
-  min-width: 13.5rem;
-  width: 100%;
+  flex: 0 1 17rem;
+  min-width: 12rem;
+  /* Without this the input's built-in width counts as the column minimum, so the box could not shrink and the masthead would drift off-centre. */
+  contain: inline-size;
 }
 
 .navbar-search input {
@@ -207,6 +232,7 @@ select {
   gap: 0.5rem;
   min-width: 0;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .navbar-user {
@@ -230,6 +256,9 @@ select {
 }
 
 .navbar-user-name {
+  max-width: clamp(6rem, 8vw, 10rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -263,11 +292,23 @@ h1 {
 }
 
 .section-title {
-  margin: 1.5rem 0 1rem;
-  font-size: clamp(2.3rem, 3vw, 3.3rem);
-  font-weight: 800;
-  letter-spacing: -0.05em;
-  line-height: 1.08;
+  display: flex;
+  gap: 0.65rem;
+  margin: 0.5rem 0 1.1rem;
+  color: var(--text-strong);
+  font-size: clamp(1.2rem, 1rem + 0.8vw, 1.6rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.section-title::before {
+  content: '';
+  flex: none;
+  width: 4px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--accent-soft), #2563eb);
 }
 
 .caption {
@@ -525,7 +566,9 @@ a.button {
 
 /* Stories */
 
+/* Story sizes follow the width of the carousel itself, not the window, so they also adapt to the sidebar. */
 .carousel {
+  container: story / inline-size;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -533,109 +576,225 @@ a.button {
 
 .carousel-nav {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: space-between;
   gap: 0.75rem;
-  width: 100%;
-  margin: 0 auto;
 }
 
-.carousel-nav .button,
 .carousel-nav-button {
-  padding: 0.5rem 0.9rem;
-  min-height: 2.4rem;
+  display: inline-flex;
+  flex: 0 1 11rem;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
   font-size: 0.92rem;
   line-height: 1.2;
-  border-radius: 10px;
+  white-space: nowrap;
 }
 
-button.button.carousel-nav-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: clamp(12rem, 20vw, 17rem);
-  min-width: 12rem;
-  height: 2.4rem !important;
-  min-height: 2.4rem !important;
-  padding: 0.5rem 0.9rem !important;
-  border-radius: 10px !important;
-  font-size: 0.92rem !important;
-  line-height: 1.2 !important;
-  box-shadow: none !important;
+.carousel-count {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .news-card {
-  margin-bottom: 0;
-  padding: 1.5rem 1.6rem 1.4rem;
+  --card-padding: clamp(1.1rem, 0.6rem + 2.5cqi, 1.9rem);
+
+  padding: var(--card-padding);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: var(--surface);
-  box-shadow: 0 10px 20px rgba(2, 6, 23, 0.18);
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  min-height: 24rem;
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(22, 40, 68, 0.92), rgba(11, 21, 37, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 48px -28px rgba(2, 6, 23, 0.9);
+  transition: border-color 0.2s ease;
 }
 
 .news-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(125, 211, 252, 0.38);
+  border-color: rgba(125, 211, 252, 0.32);
+}
+
+.story {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  overflow: hidden;
+  animation: story-enter 0.35s ease both;
+}
+
+@keyframes story-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
 .news-meta {
-  margin: 0 0 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  margin: 0 0 0.8rem;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
 }
 
-.story-card,
-.news-card,
-.story {
-  min-height: 30rem;
+.news-source {
+  color: var(--accent-soft);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.news-lang {
+  padding: 0.05rem 0.4rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .story-title {
   margin: 0 0 1rem;
-  color: #edf6ff;
-  font-size: clamp(2.5rem, 3.5vw, 4.3rem);
-  font-weight: 800;
-  line-height: 0.95;
-  letter-spacing: -0.055em;
-  max-width: 1250px;
-}
-
-.story-context {
-  margin: 0 0 1rem;
-  color: var(--text-soft);
-  font-size: 1.3rem;
-  line-height: 1.6;
-  max-width: 1250px;
-  letter-spacing: -0.02em;
-}
-
-.story-link {
-  color: var(--accent-soft);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.story-link:hover {
-  text-decoration: underline;
+  color: var(--text-strong);
+  font-size: clamp(1.3rem, 0.95rem + 1.2cqi, 1.85rem);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+  overflow-wrap: break-word;
 }
 
 .story-image {
   display: block;
   width: 100%;
-  max-height: 24rem;
-  height: auto;
-  margin: 0 0 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  aspect-ratio: 16 / 9;
+  max-height: 26rem;
+  margin: 0 0 1.1rem;
+  border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 14px;
-  object-fit: contain;
-  object-position: center;
-  background: rgba(15, 27, 45, 0.7);
+  object-fit: cover;
+  background: linear-gradient(135deg, rgba(30, 50, 80, 0.75), rgba(15, 27, 45, 0.75));
 }
 
-.news-card.story {
-  overflow: hidden;
+.story-image-placeholder {
+  background: linear-gradient(100deg, rgba(30, 50, 80, 0.55) 30%, rgba(56, 84, 128, 0.65) 50%, rgba(30, 50, 80, 0.55) 70%);
+  background-size: 300% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: 0 0;
+  }
+}
+
+.story-context {
+  max-width: 68ch;
+  margin: 0 0 1.25rem;
+  color: rgba(223, 238, 255, 0.88);
+  font-size: clamp(1rem, 0.92rem + 0.45cqi, 1.125rem);
+  line-height: 1.7;
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+
+.story .spinner {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.story-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  justify-self: start;
+  padding: 0.5rem 0.95rem;
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--accent-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.story-link:hover {
+  border-color: rgba(125, 211, 252, 0.55);
+  background: rgba(56, 189, 248, 0.16);
+}
+
+/* Wide cards place the text beside the picture, so the headline, picture and summary all fit on one screen. */
+@container story (min-width: 50rem) {
+  .story.has-media {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas:
+      'meta media'
+      'title media'
+      'body media'
+      'link media';
+    column-gap: clamp(1.5rem, 3cqi, 2.5rem);
+  }
+
+  .story.has-media > .news-meta {
+    grid-area: meta;
+  }
+
+  .story.has-media > .story-title {
+    grid-area: title;
+  }
+
+  .story.has-media > .story-image {
+    grid-area: media;
+    align-self: start;
+    aspect-ratio: 4 / 3;
+    max-height: none;
+    margin: 0;
+  }
+
+  .story.has-media > :is(.story-context, .spinner) {
+    grid-area: body;
+  }
+
+  .story.has-media > .story-link {
+    grid-area: link;
+    align-self: start;
+  }
+}
+
+/* Narrow cards: the two buttons share the row, and on the smallest screens the counter moves above them. */
+@container story (max-width: 30rem) {
+  .carousel-nav-button {
+    flex: 1 1 0;
+    padding-inline: 0.75rem;
+  }
+}
+
+@container story (max-width: 21.5rem) {
+  .carousel-nav {
+    flex-wrap: wrap;
+  }
+
+  .carousel-count {
+    order: -1;
+    width: 100%;
+    text-align: center;
+  }
 }
 
 /* AI briefing */
@@ -779,26 +938,154 @@ button.button.carousel-nav-button {
 
 /* Responsive & motion */
 
-@media (max-width: 900px) {
-  .dashboard {
-    grid-template-columns: 1fr;
+/* Medium widths: the title sits beside the Headlines link instead of in the centre, so the search box keeps a usable
+   width next to the account buttons. */
+@media (min-width: 901px) and (max-width: 1279px) {
+  .navbar {
+    grid-template-columns: auto auto minmax(0, 1fr);
   }
 
+  .navbar-brand-wrap,
+  .navbar.is-scrolled .navbar-brand-wrap {
+    justify-self: start;
+    margin-left: 0;
+  }
+
+  .navbar.is-scrolled .navbar-brand {
+    transform: none;
+  }
+
+  .navbar-search {
+    flex: 1 1 auto;
+    max-width: 26rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The search moves to its own full-width row under the links, masthead and account buttons. */
+  .navbar {
+    grid-template-areas:
+      'links brand account'
+      'search search search';
+    row-gap: 0.7rem;
+    height: auto;
+    padding-block: 0.75rem;
+  }
+
+  /* Pages without the search (log in and sign up) keep the bar on one row instead of leaving an empty one. */
+  .navbar:not(:has(.navbar-search)) {
+    grid-template-areas: 'links brand account';
+  }
+
+  .navbar-actions {
+    display: contents;
+  }
+
+  .navbar-search {
+    grid-area: search;
+    min-width: 0;
+  }
+
+  .navbar-account {
+    grid-area: account;
+    justify-self: end;
+  }
+
+  /* The title shrinks with the window instead of disappearing, and stays put when the page scrolls. */
+  .navbar-brand {
+    font-size: clamp(1.15rem, 0.35rem + 2.8vw, 1.6rem);
+  }
+
+  .navbar.is-scrolled .navbar-brand-wrap {
+    justify-self: center;
+    margin-left: 0;
+  }
+
+  .navbar.is-scrolled .navbar-brand {
+    transform: none;
+  }
+
+  /* The settings become a compact grid above the stories instead of a tall column. */
   .sidebar {
     position: static;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+    gap: 1rem 1.25rem;
     height: auto;
+    padding: 1.25rem clamp(1rem, 5vw, 5rem);
     border-right: none;
     border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .sidebar-title {
+    grid-column: 1 / -1;
+    font-size: 1.2rem;
+  }
+
+  .sidebar .field input[type='range'] {
+    margin-block: 0.75rem;
+  }
+
+  .sidebar .chip {
+    align-self: center;
+    justify-self: start;
+  }
+
+  .sidebar .button-block {
+    grid-column: span 2;
+  }
+}
+
+/* Below about 740px three columns are too narrow for the longer section names, so the settings use two. */
+@media (max-width: 740px) {
+  .sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem 0.75rem;
+  }
+
+  .sidebar .field:has(input[type='range']) {
+    grid-column: 1 / -1;
+  }
+
+  .sidebar .field input[type='range'] {
+    margin-block: 0.25rem 0;
+  }
+
+  .sidebar .button-block {
+    grid-column: auto;
+    padding-inline: 0.6rem;
+    font-size: 0.92rem;
   }
 }
 
 @media (max-width: 640px) {
   .navbar {
-    gap: 0.5rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.6rem 0.5rem;
   }
 
-  /* The logo and avatar remain, so the bar fits on phones. The names stay available to screen readers. */
-  .navbar-brand-name,
+  /* The title is centred in the space between the buttons. */
+  .navbar-brand-wrap,
+  .navbar.is-scrolled .navbar-brand-wrap {
+    justify-self: stretch;
+    margin-left: 0;
+  }
+
+  .navbar-link {
+    padding: 0.55rem 0.85rem;
+  }
+
+  /* Phones zoom into inputs whose text is smaller than 16px, so the search keeps the full size. */
+  .navbar-search input {
+    font-size: 1rem;
+  }
+
+  /* The avatar remains, so the bar fits on phones. The name stays available to screen readers. */
   .navbar-user-name {
     position: absolute;
     width: 1px;
@@ -813,15 +1100,98 @@ button.button.carousel-nav-button {
   }
 }
 
+/* Phones: the title gets its own row above the buttons, so it stays readable instead of being squeezed out. */
+@media (max-width: 520px) {
+  .navbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand brand'
+      'links account'
+      'search search';
+    row-gap: 0.55rem;
+    padding-block: 0.6rem;
+  }
+
+  .navbar:not(:has(.navbar-search)) {
+    grid-template-areas:
+      'brand brand'
+      'links account';
+  }
+
+  .navbar-brand {
+    font-size: clamp(1.2rem, 0.85rem + 1.6vw, 1.4rem);
+  }
+
+  /* The section list gets the full width, so long section names are not cut off. */
+  .sidebar .field:first-of-type {
+    grid-column: 1 / -1;
+  }
+
+  .sidebar .field:has(input[type='range']) {
+    grid-column: auto;
+  }
+}
+
+/* Each setting gets its own row, and the badge and Refresh button share the last one without wrapping. */
+@media (max-width: 400px) {
+  .sidebar {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .sidebar .field,
+  .sidebar .field:has(input[type='range']) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* The smallest phones get tighter spacing so the top bar and settings stay on one line each. */
+@media (max-width: 380px) {
+  .navbar {
+    padding-inline: 0.75rem;
+  }
+
+  .navbar-link {
+    padding: 0.5rem 0.65rem;
+  }
+
+  .navbar-account .button-small {
+    padding-inline: 0.7rem;
+  }
+
+  .sidebar .chip {
+    padding-inline: 0.6rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .sidebar .button-block {
+    font-size: 0.85rem;
+  }
+}
+
+/* Short screens, such as phones held sideways, let the top bar scroll away so it does not cover the stories. */
+@media (max-width: 900px) and (max-height: 500px) {
+  .navbar {
+    position: relative;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .spinner::before {
     animation-duration: 2.4s;
   }
 
+  .story,
+  .story-image-placeholder {
+    animation: none;
+  }
+
   .news-card,
   .results,
   .button,
-  .navbar-link {
+  .navbar,
+  .navbar-link,
+  .story-link {
     transition: none;
   }
 }

@@ -44,7 +44,8 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 .
 ├── api/                          FastAPI backend (Python)
 │   ├── main.py                   App, routes, and hosting of the built UI (web/dist)
-│   ├── news.py                   Google News RSS fetch/parse, 10-minute cache, fallback
+│   ├── news.py                   Google News RSS fetch/parse, 10-minute cache, fallback, coverage for story summaries
+│   ├── summarizer.py             Text clean-up and the multi-source story summarizer
 │   ├── briefing.py               Optional OpenAI briefing
 │   ├── models.py                 Request/response schemas (camelCase JSON)
 │   └── fallback_headlines.json   Backup headlines used when the live feed is unavailable
@@ -58,6 +59,7 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 │   │   ├── pages/                NewsPage (headlines dashboard), AuthPage (log in, sign up), ProfilePage
 │   │   ├── components/           NavBar, AuthProvider, Sidebar, StoryCarousel, BriefingPanel, Status
 │   │   ├── api.ts                Typed client for the /api endpoints
+│   │   ├── filters.ts            Sidebar filter options, kept across page reloads in session storage
 │   │   ├── supabase.ts           Supabase client and profile queries
 │   │   ├── auth.ts               Auth context and hook (session and profile state)
 │   │   ├── database.types.ts     Types for the Supabase tables
@@ -167,6 +169,7 @@ Interactive documentation is available at http://localhost:8000/docs while the A
 | ------ | ----------------- | ----------- |
 | GET    | `/api/categories` | News sections, for example `[{"id": "world", "label": "Top World News"}, ...]`. |
 | GET    | `/api/news`       | Headlines for a section. Query: `category` (required), `hours` (1–168, default 24), `limit` (1–50, default 30), `q` (optional search term that replaces the section's default topic), `refresh` (`true` clears the cache). Returns `{category, hours, articles, usingFallback}`. |
+| GET    | `/api/news/summary` | One story with a two- or three-sentence summary built from several outlets' coverage (see [Story summaries and images](#story-summaries-and-images)). Query: `url` (an article `url` from a recent `/api/news` response; other URLs get a 404). Returns the article, with the summary in `context`. |
 | POST   | `/api/briefing`   | Body `{"category", "hours", "limit", "apiKey"}`. Summarizes up to 20 current headlines with `gpt-4.1-mini` using the caller's own key and returns `{"briefing": "<markdown>"}`. |
 
 Accounts do not use this API; the browser calls Supabase directly.
@@ -174,10 +177,13 @@ Accounts do not use this API; the browser calls Supabase directly.
 ## What it does
 
 - Retrieves recent English headlines and publisher links from the public Google News RSS feed.
+- Summarizes each story in two or three sentences when you open it, combining what several outlets report about it,
+  and shows the article's photo (see [Story summaries and images](#story-summaries-and-images)).
 - Offers sections for world news, India, IPL cricket, AI/technology, business/economy, science/space, and
   politics/geopolitics.
 - Searches any topic with the box above the headlines; choosing another section clears the search.
 - Filters by the last 6 hours, 24 hours, or 3 days, and shows 10–50 headlines one story at a time (Previous/Next).
+- Keeps your section, time window, and number of headlines when you reload the page, for as long as the tab is open.
 - Caches results for 10 minutes; use **Refresh headlines** to fetch again.
 - Shows bundled backup headlines if the live feed is unreachable, and retries the feed after a minute.
 - Has a navigation bar on every page with **Log in** and **Sign up**. Accounts are optional: the headlines page is
@@ -197,10 +203,9 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
   and stories could be weeks old.
 - **Number of headlines is honored up to 50.** It was previously capped at 12.
 - Each story links to the original article.
-- Google News descriptions only repeat the headline, so stories now show generated context instead. The trailing
-  " - Publisher" is removed from titles because the publisher already appears above the title.
-- Context keywords match whole words, so headlines containing words such as "said" or "Ukraine" are no longer
-  described as AI stories.
+- Google News descriptions only repeat the headline, so each story now shows a summary built from several outlets'
+  coverage instead. The trailing " - Publisher" is removed from titles because the publisher already appears above the
+  title.
 - Publication times are shown in your local time zone.
 - The info banner, which named GDELT instead of Google News RSS as the source, was removed. The unused GDELT queries
   and title-translation code were dropped because the feed is already English-only.
@@ -227,6 +232,10 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
 - **The app always shows backup headlines.** The backend cannot reach Google News. On a corporate network with TLS
   inspection, Python may not trust the proxy's certificate: set `REQUESTS_CA_BUNDLE` (Google News) and
   `SSL_CERT_FILE` (OpenAI) to your corporate CA bundle before starting uvicorn.
+- **Some stories show only the headline, without a summary or photo.** Every outlet covering the story refuses
+  automated requests (for example with HTTP 401, 403, or 429), or builds its page with JavaScript, which the backend
+  does not run. Stories whose pages were briefly unreachable are tried again when you return to them. See
+  [Story summaries and images](#story-summaries-and-images).
 - **uvicorn reports "Address already in use".** Another process is using port 8000. Stop it, or start the API with
   another `--port` and update the proxy target in `web/vite.config.ts` to match. (Vite automatically moves to the next
   free port if 5173 is taken and prints the URL to open.)
@@ -240,9 +249,49 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
 - **Sign-up fails with "Database error saving new user", or the profile page says "The profiles table was not
   found".** The SQL migration has not been run in this Supabase project, or it failed. Run it in the SQL Editor.
 
-## News image source
+## Story summaries and images
 
-For real article thumbnails, set a NewsAPI key before starting the backend:
+Google News RSS items contain only the headline, so the headlines load without summaries. When you open a story, the
+UI asks `/api/news/summary` for one (and for the next story's in advance), and shows "Reading this story's coverage
+from several outlets…" until it arrives, usually within a few seconds.
+
+To build a summary, the backend (`api/news.py`, `api/summarizer.py`):
+
+1. **Collects coverage.** It takes the story's own article, then looks for other outlets' reports of the same story:
+   first among the headlines already loaded, then with a Google News search for the headline's names and key words.
+   Headlines count as the same story when they share at least three key terms, and the reports must be published
+   within 48 hours of each other. Up to three independent reports are used, plus up to two copies of the story itself
+   from other outlets (syndicated wire copy), which stand in when the original publisher's page cannot be read.
+2. **Reads each page.** Google News links are resolved to the publisher's URL, and the page's descriptions and
+   opening paragraphs are read. Bylines, datelines, photo credits, and site text such as subscription prompts are
+   removed, and the text is split into sentences without breaking at abbreviations such as "Sen." or "U.S.".
+3. **Ranks the sentences.** Each sentence scores higher when the other outlets report the same facts (TF-IDF
+   similarity), when it is about the story's headlines, and when it comes early in its article, because news stories
+   lead with the essentials.
+4. **Writes the summary.** The best sentence that makes sense on its own opens the summary. Up to two more follow,
+   each adding new facts: sentences that mostly repeat what is already said, or that start with "He", "They", or
+   "But" without their preceding sentence, are skipped. Summaries are kept to about 60 words.
+
+The summary uses the outlets' own sentences; it does not rewrite them. The photo is the preview image the page names
+(Open Graph, Twitter, or JSON-LD), or else the main photo in the article itself; if the story's own page has none, it
+comes from another report of the story.
+
+Reading pages reliably:
+
+- Pages are requested with a short User-Agent first. When a site refuses it (for example with HTTP 403 or 406) or
+  answers with an "access blocked" page instead of the article, the page is requested again as a browser.
+- Brief network failures (a dropped connection, a failed DNS lookup, HTTP 502–504) are retried once; slow sites
+  are not, because retrying only doubles the wait.
+- Pages are fetched in parallel, with at most two requests to one publisher and six to Google News at a time. A
+  summary waits up to 15 seconds for its pages, and up to 15 more if none has arrived by then. A summary built
+  before all of its pages arrived is rebuilt a minute later, and the UI asks again for stories that came back
+  without a summary when you return to them. Complete summaries are cached for 6 hours.
+- Certificates are verified as browsers and curl do. Python 3.13 added stricter checks (`ssl.VERIFY_X509_STRICT`)
+  that corporate proxies which inspect TLS traffic often fail ("Missing Authority Key Identifier"), so page requests
+  skip only those extra checks; the certificate chain and host name are still verified.
+
+NewsAPI includes a description and an image URL with most articles. To use it, set a NewsAPI key before starting the
+backend:
 
 ```bash
 export NEWSAPI_KEY="your_key_here"
