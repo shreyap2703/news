@@ -21,13 +21,13 @@ React fits this app well:
 ## Architecture
 
 ```text
-Browser ── React app (web/) ──/api──▶ FastAPI (api/) ──▶ Google News RSS
+Browser ── React app (web/) ──/api──▶ FastAPI (api/) ──▶ Publishers' RSS feeds (Google News RSS as backup)
                  │                                  └──▶ OpenAI API (optional AI briefing)
                  └────────────────────────────────────▶ Supabase (optional accounts and profiles)
 ```
 
 The Python data logic from the Streamlit app now runs as a JSON API. A backend is still needed because browsers
-cannot read the Google News RSS feed directly (it does not allow cross-origin requests), and it keeps the shared
+cannot read most news feeds directly (they do not allow cross-origin requests), and it keeps the shared
 10-minute cache and backup headlines on the server.
 
 Accounts are optional, and the browser talks to Supabase directly: Supabase Auth handles sign-up, log in, and
@@ -44,7 +44,7 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 .
 ├── api/                          FastAPI backend (Python)
 │   ├── main.py                   App, routes, and hosting of the built UI (web/dist)
-│   ├── news.py                   Google News RSS fetch/parse, 10-minute cache, fallback, coverage for story summaries
+│   ├── news.py                   Publisher and Google News feeds, 10-minute cache, fallback, coverage for story summaries
 │   ├── summarizer.py             Text clean-up and the multi-source story summarizer
 │   ├── briefing.py               Optional OpenAI briefing
 │   ├── models.py                 Request/response schemas (camelCase JSON)
@@ -176,12 +176,16 @@ Accounts do not use this API; the browser calls Supabase directly.
 
 ## What it does
 
-- Retrieves recent English headlines and publisher links from the public Google News RSS feed.
+- Retrieves the latest English headlines from publishers' own RSS feeds, four per section (for example BBC News,
+  Al Jazeera, The Guardian, and NPR for world news; The Hindu, Times of India, NDTV, and Indian Express for India;
+  cricket feeds filtered to IPL stories for IPL). The feeds are listed in `CATEGORIES` in `api/news.py`. When none of
+  a section's feeds answers, or nothing in them matches, headlines come from the public Google News RSS feed instead.
 - Summarizes each story in two or three sentences when you open it, combining what several outlets report about it,
   and shows the article's photo (see [Story summaries and images](#story-summaries-and-images)).
 - Offers sections for world news, India, IPL cricket, AI/technology, business/economy, science/space, and
   politics/geopolitics.
-- Searches any topic with the box above the headlines; choosing another section clears the search.
+- Searches any topic with the box above the headlines (across every section's feeds); choosing another section
+  clears the search.
 - Filters by the last 6 hours, 24 hours, or 3 days, and shows 10–50 headlines one story at a time (Previous/Next).
 - Keeps your section, time window, and number of headlines when you reload the page, for as long as the tab is open.
 - Caches results for 10 minutes; use **Refresh headlines** to fetch again.
@@ -199,7 +203,7 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
 - The UI was rebuilt in React with the same layout, wording, and dark theme. `streamlit` was removed from
   `requirements.txt`.
 - The Python data logic moved into the FastAPI `api/` package and is exposed as JSON endpoints.
-- **Look back now filters results** (using the Google News `when:` operator). Previously, the selection was ignored
+- **Look back now filters results** by publication time. Previously, the selection was ignored
   and stories could be weeks old.
 - **Number of headlines is honored up to 50.** It was previously capped at 12.
 - Each story links to the original article.
@@ -212,7 +216,9 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
 
 ## Notes
 
-- Google News coverage and ranking vary; this is not a complete feed of every news outlet.
+- Headlines come from a fixed set of publishers per section, so this is not a complete feed of every news outlet.
+  Google News, the backup source, limits how often one network may request it (HTTP 429); after such an answer the
+  backend leaves it alone for 5 minutes (or as long as its `Retry-After` header asks).
 - The UI no longer shows the AI briefing, but the `/api/briefing` endpoint still works. It summarizes headlines only,
   not the full articles, so open the source links and verify important claims. The OpenAI API key is sent only with
   the briefing request and is never stored by this app.
@@ -229,8 +235,8 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
   package and must be started with `uvicorn api.main:app` from the project root.
 - **http://127.0.0.1:5173 does not load.** Vite listens on `localhost`, which can resolve to IPv6 only. Use
   http://localhost:5173, or start it with `npm run dev -- --host 127.0.0.1`.
-- **The app always shows backup headlines.** The backend cannot reach Google News. On a corporate network with TLS
-  inspection, Python may not trust the proxy's certificate: set `REQUESTS_CA_BUNDLE` (Google News) and
+- **The app always shows backup headlines.** The backend cannot reach the news feeds. On a corporate network with TLS
+  inspection, Python may not trust the proxy's certificate: set `REQUESTS_CA_BUNDLE` (news feeds) and
   `SSL_CERT_FILE` (OpenAI) to your corporate CA bundle before starting uvicorn.
 - **Some stories show only the headline, without a summary or photo.** Every outlet covering the story refuses
   automated requests (for example with HTTP 401, 403, or 429), or builds its page with JavaScript, which the backend
@@ -251,7 +257,8 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
 
 ## Story summaries and images
 
-Google News RSS items contain only the headline, so the headlines load without summaries. When you open a story, the
+Feed items carry at most a short description, so the headlines load with the publisher's teaser (Google News items
+have none). When you open a story, the
 UI asks `/api/news/summary` for one (and for the next story's in advance), and shows "Reading this story's coverage
 from several outlets…" until it arrives, usually within a few seconds.
 
@@ -282,7 +289,7 @@ Reading pages reliably:
   answers with an "access blocked" page instead of the article, the page is requested again as a browser.
 - Brief network failures (a dropped connection, a failed DNS lookup, HTTP 502–504) are retried once; slow sites
   are not, because retrying only doubles the wait.
-- Pages are fetched in parallel, with at most two requests to one publisher and six to Google News at a time. A
+- Pages are fetched in parallel, with at most two requests to one publisher and two to Google News at a time. A
   summary waits up to 15 seconds for its pages, and up to 15 more if none has arrived by then. A summary built
   before all of its pages arrived is rebuilt a minute later, and the UI asks again for stories that came back
   without a summary when you return to them. Complete summaries are cached for 6 hours.
@@ -290,12 +297,13 @@ Reading pages reliably:
   that corporate proxies which inspect TLS traffic often fail ("Missing Authority Key Identifier"), so page requests
   skip only those extra checks; the certificate chain and host name are still verified.
 
-NewsAPI includes a description and an image URL with most articles. To use it, set a NewsAPI key before starting the
-backend:
+NewsAPI includes a description and an image URL with most articles, but its free plan delays articles by 24 hours. To
+use it as the backup source instead of Google News, set a NewsAPI key before starting the backend:
 
 ```bash
 export NEWSAPI_KEY="your_key_here"
 uvicorn api.main:app --reload --reload-dir api --port 8000
 ```
 
-When the key is absent, the app falls back to Google News RSS so the dashboard still works without a paid API subscription.
+Publishers' feeds are still read first; NewsAPI (or, without a key, Google News RSS) is used only when they return
+nothing.
