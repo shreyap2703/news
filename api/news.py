@@ -49,8 +49,14 @@ STORY_SOURCES_GRACE_SECONDS = 15
 SUMMARY_WORKERS = 4
 # Some publishers answer with HTTP 429 when several requests arrive at once.
 MAX_REQUESTS_PER_PUBLISHER = 2
-# Google News article pages are large and slow down when many are requested at once.
-MAX_GOOGLE_PAGE_REQUESTS = 6
+# Google News article pages are large, and Google answers with HTTP 429 when many links are decoded at once.
+MAX_GOOGLE_PAGE_REQUESTS = 2
+# After Google News answers with HTTP 429, it is left alone this long (or as long as its Retry-After asks), since
+# further requests only extend the block.
+GOOGLE_COOLDOWN_SECONDS = 300
+# Publisher feeds are read in parallel and shared for this long by sections and searches that use the same feed.
+FEED_WORKERS = 8
+PUBLISHER_FEED_TTL_SECONDS = 300
 ARTICLE_CACHE_TTL_SECONDS = 6 * 60 * 60
 # Look again sooner when a page was unreachable or had nothing usable.
 ARTICLE_RETRY_TTL_SECONDS = 600
@@ -94,16 +100,89 @@ class NewsCategory:
     id: str
     label: str
     topic: str
+    # (publisher, RSS or Atom feed URL). Headlines come from these first, and from Google News only when none answer.
+    feeds: tuple[tuple[str, str], ...] = ()
 
 
 CATEGORIES = (
-    NewsCategory("world", "Top World News", "world news"),
-    NewsCategory("india", "India", "India news"),
-    NewsCategory("ipl", "IPL", "Indian Premier League cricket"),
-    NewsCategory("ai-technology", "AI & Technology", "AI technology news"),
-    NewsCategory("business-economy", "Business & Economy", "global business economy news"),
-    NewsCategory("science-space", "Science & Space", "science space news"),
-    NewsCategory("politics-geopolitics", "Politics & Geopolitics", "global politics geopolitics news"),
+    NewsCategory(
+        "world",
+        "Top World News",
+        "world news",
+        (
+            ("BBC News", "https://feeds.bbci.co.uk/news/world/rss.xml"),
+            ("Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml"),
+            ("The Guardian", "https://www.theguardian.com/world/rss"),
+            ("NPR", "https://feeds.npr.org/1004/rss.xml"),
+        ),
+    ),
+    NewsCategory(
+        "india",
+        "India",
+        "India news",
+        (
+            ("The Hindu", "https://www.thehindu.com/news/national/feeder/default.rss"),
+            ("Times of India", "https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms"),
+            ("NDTV", "https://feeds.feedburner.com/ndtvnews-india-news"),
+            ("Indian Express", "https://indianexpress.com/section/india/feed/"),
+        ),
+    ),
+    NewsCategory(
+        "ipl",
+        "IPL",
+        "Indian Premier League cricket",
+        # Cricket feeds; only IPL headlines are kept (see _category_title_matches).
+        (
+            ("ESPNcricinfo", "https://www.espncricinfo.com/rss/content/story/feeds/0.xml"),
+            ("Times of India", "https://timesofindia.indiatimes.com/rssfeeds/54829575.cms"),
+            ("NDTV Sports", "https://feeds.feedburner.com/ndtvsports-cricket"),
+            ("The Hindu", "https://www.thehindu.com/sport/cricket/feeder/default.rss"),
+        ),
+    ),
+    NewsCategory(
+        "ai-technology",
+        "AI & Technology",
+        "AI technology news",
+        (
+            ("TechCrunch", "https://techcrunch.com/feed/"),
+            ("The Verge", "https://www.theverge.com/rss/index.xml"),
+            ("Ars Technica", "https://feeds.arstechnica.com/arstechnica/index"),
+            ("BBC News", "https://feeds.bbci.co.uk/news/technology/rss.xml"),
+        ),
+    ),
+    NewsCategory(
+        "business-economy",
+        "Business & Economy",
+        "global business economy news",
+        (
+            ("BBC News", "https://feeds.bbci.co.uk/news/business/rss.xml"),
+            ("CNBC", "https://www.cnbc.com/id/100727362/device/rss/rss.html"),
+            ("The Hindu", "https://www.thehindu.com/business/feeder/default.rss"),
+            ("The Guardian", "https://www.theguardian.com/business/rss"),
+        ),
+    ),
+    NewsCategory(
+        "science-space",
+        "Science & Space",
+        "science space news",
+        (
+            ("BBC News", "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml"),
+            ("Space.com", "https://www.space.com/feeds/all"),
+            ("NASA", "https://www.nasa.gov/news-release/feed/"),
+            ("ScienceDaily", "https://www.sciencedaily.com/rss/top/science.xml"),
+        ),
+    ),
+    NewsCategory(
+        "politics-geopolitics",
+        "Politics & Geopolitics",
+        "global politics geopolitics news",
+        (
+            ("Politico", "https://rss.politico.com/politics-news.xml"),
+            ("NPR", "https://feeds.npr.org/1014/rss.xml"),
+            ("The Guardian", "https://www.theguardian.com/politics/rss"),
+            ("Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml"),
+        ),
+    ),
 )
 CATEGORIES_BY_ID = {category.id: category for category in CATEGORIES}
 
@@ -167,6 +246,7 @@ _CONTEXT_RULES = (
 )
 
 _GOOGLE_NEWS_ARTICLE_PATH_RE = re.compile(r"/(?:rss/)?articles/([A-Za-z0-9_-]+)")
+_ATOM = "{http://www.w3.org/2005/Atom}"
 _IMAGE_META_KEYS = ("og:image", "og:image:url", "og:image:secure_url", "twitter:image", "twitter:image:src")
 # Opening a new block element ends an open paragraph, as it does in a browser.
 _BLOCK_TAGS = frozenset(
@@ -299,6 +379,12 @@ _story_summaries: _LookupCache[_StorySummary] = _LookupCache(
 _publisher_slots: dict[str, threading.BoundedSemaphore] = {}
 _publisher_slots_lock = threading.Lock()
 _google_page_slots = threading.BoundedSemaphore(MAX_GOOGLE_PAGE_REQUESTS)
+_google_blocked_until = 0.0
+_google_blocked_lock = threading.Lock()
+_feed_pool = ThreadPoolExecutor(max_workers=FEED_WORKERS, thread_name_prefix="publisher-feed")
+# Feed URL -> (expiry time, articles)
+_feed_cache: dict[str, tuple[float, list[Article]]] = {}
+_feed_cache_lock = threading.Lock()
 # Article URL -> (article, whether it came from the live feed) for articles that get_news has listed. Summaries are
 # only built for these, so the summary endpoint cannot be used to make the server fetch arbitrary pages.
 _listed_articles: dict[str, tuple[Article, bool]] = {}
@@ -487,9 +573,34 @@ def fetch_google_news(category: NewsCategory, hours: int, search: Optional[str] 
     return _read_google_news_feed(google_news_url(category.topic, hours, search), category.topic)
 
 
+class GoogleNewsCoolingDown(requests.RequestException):
+    """Raised instead of sending a request while Google News is rate-limiting this server."""
+
+
+def _check_google_available() -> None:
+    with _google_blocked_lock:
+        remaining = _google_blocked_until - time.monotonic()
+    if remaining > 0:
+        raise GoogleNewsCoolingDown(f"Google News is rate-limiting requests; trying again in {remaining:.0f} s")
+
+
+def _note_google_status(status: int, headers: Mapping[str, str]) -> None:
+    """Start a cooldown when Google News answers with HTTP 429."""
+    global _google_blocked_until
+    if status != 429:
+        return
+    retry_after = (headers.get("Retry-After") or "").strip()
+    cooldown = int(retry_after) if retry_after.isdigit() else GOOGLE_COOLDOWN_SECONDS
+    with _google_blocked_lock:
+        _google_blocked_until = max(_google_blocked_until, time.monotonic() + cooldown)
+    logger.warning("Google News answered with HTTP 429; pausing requests to it for %d s", cooldown)
+
+
 def _read_google_news_feed(url: str, topic: str) -> list[Article]:
     try:
+        _check_google_available()
         response = _session().get(url, timeout=REQUEST_TIMEOUT_SECONDS, headers=SHORT_HEADERS)
+        _note_google_status(response.status_code, response.headers)
         response.raise_for_status()
         root = ET.fromstring(response.content)
     except (requests.RequestException, ET.ParseError) as exc:
@@ -539,6 +650,9 @@ def _extract_image_url(entry: ET.Element) -> str:
             candidate = _http_url(element.get("url")) or ""
             if candidate and not _is_google_placeholder(candidate):
                 return candidate
+    enclosure = entry.find("enclosure")
+    if enclosure is not None and (enclosure.get("type") or "").startswith("image/"):
+        return _http_url(enclosure.get("url"))
     return ""
 
 
@@ -551,12 +665,33 @@ def _google_news_article_id(url: str) -> str:
 def _resolve_google_news_url(article_url: str, article_id: str) -> str:
     """Return the publisher URL behind a Google News article link, whose page only redirects with JavaScript."""
     with _google_page_slots:
-        _, page_html = _fetch_html(article_url)
-    signature = re.search(r'data-n-a-sg="([^"]+)"', page_html)
-    timestamp = re.search(r'data-n-a-ts="(\d+)"', page_html)
-    if not signature or not timestamp:
-        return ""
+        _check_google_available()
+        signature, timestamp = _google_news_page_keys(article_url)
+        if not signature or not timestamp:
+            return ""
+        return _decode_google_news_url(article_id, signature, timestamp)
 
+
+def _google_news_page_keys(article_url: str) -> tuple[str, str]:
+    """Return the signature and timestamp that a Google News article page holds for decoding its link.
+
+    The page is requested once with the short User-Agent, and again as a browser only when that did not return them.
+    """
+    for headers in (SHORT_HEADERS, BROWSER_HEADERS):
+        status, final_url, page_html = _download(article_url, headers)
+        _note_google_status(status, {})
+        if status in (404, 410, 429):
+            raise requests.HTTPError(f"{status} error for url: {final_url}")
+        signature = re.search(r'data-n-a-sg="([^"]+)"', page_html)
+        timestamp = re.search(r'data-n-a-ts="(\d+)"', page_html)
+        if signature and timestamp:
+            return signature.group(1), timestamp.group(1)
+    if status >= 400:
+        raise requests.HTTPError(f"{status} error for url: {final_url}")
+    return "", ""
+
+
+def _decode_google_news_url(article_id: str, signature: str, timestamp: str) -> str:
     request = [
         "garturlreq",
         [
@@ -564,8 +699,8 @@ def _resolve_google_news_url(article_url: str, article_id: str) -> str:
             "X", "X", 1, [1, 1, 1], 1, 1, None, 0, 0, None, 0,
         ],
         article_id,
-        int(timestamp.group(1)),
-        signature.group(1),
+        int(timestamp),
+        signature,
     ]
     response = _session().post(
         GOOGLE_NEWS_DECODE_URL,
@@ -573,6 +708,7 @@ def _resolve_google_news_url(article_url: str, article_id: str) -> str:
         headers={**SHORT_HEADERS, "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
         timeout=ARTICLE_REQUEST_TIMEOUT_SECONDS,
     )
+    _note_google_status(response.status_code, response.headers)
     response.raise_for_status()
 
     # The reply is ")]}'" followed by JSON rows such as ["wrb.fr", "Fbv4je", "[\"garturlres\", \"<url>\", 1]", ...].
@@ -813,7 +949,11 @@ def to_iso8601(value: Optional[str]) -> str:
     try:
         parsed = parsedate_to_datetime(text)
     except (TypeError, ValueError):
-        return text
+        # Some feeds (Atom, and a few RSS ones) give ISO 8601 dates instead of RFC 2822.
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError:
+            return text
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -843,10 +983,110 @@ def _newsapi_key() -> str:
 
 
 def fetch_news_articles(category: NewsCategory, hours: int, search: Optional[str] = None, limit: int = 30) -> list[Article]:
-    api_key = _newsapi_key()
-    if api_key:
+    articles = fetch_publisher_feeds(category, hours, search=search)
+    if articles:
+        return articles
+    if _newsapi_key():
         return _fetch_newsapi_articles(category, hours, search=search, limit=limit)
     return fetch_google_news(category, hours, search=search)
+
+
+def fetch_publisher_feeds(category: NewsCategory, hours: int, search: Optional[str] = None) -> list[Article]:
+    """Return the newest headlines from the section's publisher feeds, newest first.
+
+    A search looks through every section's feeds. Headlines older than ``hours`` are left out, and so are
+    headlines that several feeds share.
+    """
+    if search and search.strip():
+        feeds = list(dict.fromkeys(feed for section in CATEGORIES for feed in section.feeds))
+    else:
+        feeds = list(category.feeds)
+    if not feeds:
+        return []
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    articles: list[Article] = []
+    seen: set[str] = set()
+    for feed_articles in _feed_pool.map(lambda feed: _cached_publisher_feed(*feed), feeds):
+        for article in feed_articles:
+            published = _parse_iso8601(article.published)
+            if published is None or published < cutoff:
+                continue
+            if search and search.strip():
+                if not _matches_search(f"{article.title} {article.context}", search):
+                    continue
+            elif not _category_title_matches(category, article.title):
+                continue
+            title_key = normalize(article.title)
+            if article.url in seen or title_key in seen:
+                continue
+            seen.update((article.url, title_key))
+            articles.append(article)
+    articles.sort(key=lambda article: article.published, reverse=True)
+    return articles
+
+
+def _parse_iso8601(value: str) -> Optional[datetime]:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _cached_publisher_feed(source: str, url: str) -> list[Article]:
+    now = time.monotonic()
+    with _feed_cache_lock:
+        cached = _feed_cache.get(url)
+    if cached is not None and cached[0] > now:
+        return cached[1]
+    articles = _read_publisher_feed(source, url)
+    with _feed_cache_lock:
+        _feed_cache[url] = (now + PUBLISHER_FEED_TTL_SECONDS, articles)
+    return articles
+
+
+def _read_publisher_feed(source: str, url: str) -> list[Article]:
+    """Read a publisher's RSS or Atom feed; returns an empty list when it is unavailable."""
+    try:
+        response = _session().get(url, timeout=REQUEST_TIMEOUT_SECONDS, headers=SHORT_HEADERS)
+        response.raise_for_status()
+        root = ET.fromstring(response.content)
+    except (requests.RequestException, ET.ParseError) as exc:
+        logger.warning("The %s feed is unavailable (%s): %s", source, url, exc)
+        return []
+    entries = root.findall("./channel/item") or root.findall(f"{_ATOM}entry")
+    articles = []
+    for entry in entries:
+        article = _parse_feed_entry(entry, source)
+        if article is not None:
+            articles.append(article)
+    return articles
+
+
+def _parse_feed_entry(entry: ET.Element, source: str) -> Optional[Article]:
+    title = clean_text(entry.findtext("title") or entry.findtext(f"{_ATOM}title"))
+    url = _http_url(entry.findtext("link"))
+    if not url:
+        for link in entry.findall(f"{_ATOM}link"):
+            if link.get("rel", "alternate") == "alternate":
+                url = _http_url(link.get("href"))
+                break
+    if not title or not url:
+        return None
+    published = (
+        entry.findtext("pubDate")
+        or entry.findtext(f"{_ATOM}published")
+        or entry.findtext(f"{_ATOM}updated")
+        or entry.findtext("{http://purl.org/dc/elements/1.1/}date")
+    )
+    description = entry.findtext("description") or entry.findtext(f"{_ATOM}summary") or ""
+    return Article(
+        title=title,
+        source=source,
+        published=to_iso8601(published),
+        url=url,
+        context=pick_summary((description,), title),
+        image_url=_extract_image_url(entry),
+    )
 
 
 def _fetch_newsapi_articles(category: NewsCategory, hours: int, search: Optional[str] = None, limit: int = 30) -> list[Article]:
