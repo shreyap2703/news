@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink } from 'react-router'
+import { Link, NavLink, matchPath, useLocation } from 'react-router'
 import { displayName, useAuth } from '../auth.ts'
 import { logOut } from '../supabase.ts'
+
+/** The log in and sign up forms have nothing to search, so the search bar is hidden there. */
+const PAGES_WITHOUT_SEARCH = ['/login', '/signup']
 
 function handleLogOut() {
   logOut().catch((error: unknown) => console.error('Could not log out:', error))
@@ -9,7 +12,9 @@ function handleLogOut() {
 
 export default function NavBar() {
   const { loading, user, profile } = useAuth()
+  const { pathname } = useLocation()
   const name = user ? displayName(user, profile) : ''
+  const showSearch = !PAGES_WITHOUT_SEARCH.some((path) => matchPath(path, pathname))
   const [searchValue, setSearchValue] = useState('')
   const [scrolled, setScrolled] = useState(false)
 
@@ -44,21 +49,23 @@ export default function NavBar() {
       </div>
 
       <div className="navbar-actions">
-        <div className="navbar-search" role="search">
-          <input
-            type="text"
-            value={searchValue}
-            onChange={(event) => setSearchValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') handleSearch()
-            }}
-            placeholder="Search topics..."
-            aria-label="Search news topics"
-          />
-          <button type="button" className="button button-small" onClick={handleSearch}>
-            Search
-          </button>
-        </div>
+        {showSearch && (
+          <div className="navbar-search" role="search">
+            <input
+              type="text"
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') handleSearch()
+              }}
+              placeholder="Search topics..."
+              aria-label="Search news topics"
+            />
+            <button type="button" className="button button-small" onClick={handleSearch}>
+              Search
+            </button>
+          </div>
+        )}
 
         {/* Nothing is shown while the saved session is restored, so the buttons do not flicker. */}
         {!loading && (

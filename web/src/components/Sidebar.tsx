@@ -1,12 +1,5 @@
+import { HEADLINE_LIMIT, LOOK_BACK_OPTIONS } from '../filters.ts'
 import type { Category } from '../types.ts'
-
-const LOOK_BACK_OPTIONS = [
-  { hours: 6, label: 'Last 6 hours' },
-  { hours: 24, label: 'Last 24 hours' },
-  { hours: 72, label: 'Last 3 days' },
-] as const
-
-const HEADLINE_LIMIT = { min: 10, max: 50, step: 5 } as const
 
 interface SidebarProps {
   categories: Category[]
