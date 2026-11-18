@@ -57,14 +57,15 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 ├── web/                          React + TypeScript frontend (Vite)
 │   ├── .env.example              Template for web/.env.local (Supabase URL and publishable key)
 │   ├── src/
-│   │   ├── main.tsx              Entry point: router and auth provider
+│   │   ├── main.tsx              Entry point: router, auth provider, and briefing menu provider
 │   │   ├── App.tsx               Navigation bar and page routes
 │   │   ├── pages/                NewsPage (headlines dashboard), AuthPage (log in, sign up), ProfilePage
-│   │   ├── components/           NavBar, AuthProvider, Sidebar, StoryCarousel, AskAi, BriefingPanel, Status
+│   │   ├── components/           NavBar, AuthProvider, BriefingMenuProvider, Sidebar, StoryCarousel, AskAi, BriefingPanel, Status
 │   │   ├── api.ts                Typed client for the /api endpoints
 │   │   ├── filters.ts            Sidebar filter options, kept across page reloads in session storage
 │   │   ├── supabase.ts           Supabase client and profile queries
 │   │   ├── auth.ts               Auth context and hook (session and profile state)
+│   │   ├── briefingMenu.ts       Context for the phone menu that holds the briefing settings
 │   │   ├── database.types.ts     Types for the Supabase tables
 │   │   ├── types.ts              API response types
 │   │   └── index.css             Dark theme (ported from the Streamlit custom CSS)
@@ -236,6 +237,9 @@ Accounts do not use this API; the browser calls Supabase directly.
   clears the search.
 - Filters by the last 6 hours, 24 hours, or 3 days, and shows 10–50 headlines one story at a time (Previous/Next).
 - Keeps your section, time window, and number of headlines when you reload the page, for as long as the tab is open.
+- On phones, keeps the briefing settings (section, time window, number of headlines, and **Refresh headlines**) in a
+  menu: tap ☰ beside the search to slide it open, and tap outside it, ×, or **Refresh headlines** (or press Esc) to
+  close it. Tablets and wider screens show the settings as before.
 - Caches results for 10 minutes; use **Refresh headlines** to fetch again.
 - Shows bundled backup headlines if the live feed is unreachable, and retries the feed after a minute.
 - Has a navigation bar on every page with **Log in** and **Sign up**. Accounts are optional: the headlines page is

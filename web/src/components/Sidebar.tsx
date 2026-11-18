@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+import { BRIEFING_SETTINGS_ID } from '../briefingMenu.ts'
 import { HEADLINE_LIMIT, LOOK_BACK_OPTIONS } from '../filters.ts'
 import type { Category } from '../types.ts'
 
@@ -10,6 +12,9 @@ interface SidebarProps {
   onHoursChange: (hours: number) => void
   onLimitChange: (limit: number) => void
   onRefresh: () => void
+  /** On phones the settings are a menu opened from the top bar: whether it is open. */
+  menuOpen: boolean
+  onCloseMenu: () => void
 }
 
 export default function Sidebar({
@@ -21,10 +26,35 @@ export default function Sidebar({
   onHoursChange,
   onLimitChange,
   onRefresh,
+  menuOpen,
+  onCloseMenu,
 }: SidebarProps) {
+  const sidebarRef = useRef<HTMLElement>(null)
+
+  // Opening the menu moves the focus into it, so keyboard and screen reader users land on the settings.
+  useEffect(() => {
+    if (menuOpen) sidebarRef.current?.focus()
+  }, [menuOpen])
+
   return (
-    <aside className="sidebar" aria-label="Briefing settings">
-      <h2 className="sidebar-title">Your briefing</h2>
+    <aside
+      id={BRIEFING_SETTINGS_ID}
+      ref={sidebarRef}
+      className={menuOpen ? 'sidebar is-open' : 'sidebar'}
+      aria-label="Briefing settings"
+      role={menuOpen ? 'dialog' : undefined}
+      aria-modal={menuOpen || undefined}
+      tabIndex={-1}
+      onKeyDown={(event) => {
+        if (menuOpen && event.key === 'Escape') onCloseMenu()
+      }}
+    >
+      <div className="sidebar-header">
+        <h2 className="sidebar-title">Your briefing</h2>
+        <button type="button" className="sidebar-close" aria-label="Close briefing settings" onClick={onCloseMenu}>
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
 
       <label className="field">
         <span className="field-label">News section</span>
