@@ -225,7 +225,7 @@ Accounts do not use this API; the browser calls Supabase directly.
   Al Jazeera, The Guardian, and NPR for world news; The Hindu, Times of India, NDTV, and Indian Express for India;
   cricket feeds filtered to IPL stories for IPL). The feeds are listed in `CATEGORIES` in `api/news.py`. When none of
   a section's feeds answers, or nothing in them matches, headlines come from the public Google News RSS feed instead.
-- Summarizes each story in two or three sentences when you open it, combining what several outlets report about it,
+- Summarizes each story in about 100–120 words when you open it, combining what several outlets report about it,
   and shows the article's photo (see [Story summaries and images](#story-summaries-and-images)).
 - Answers your questions about a story with **Ask AI**, an NVIDIA model that reads the article: the button sits beside
   **Open the original article**, and the conversation opens below the story (see
@@ -334,9 +334,11 @@ To build a summary, the backend (`api/news.py`, `api/summarizer.py`):
 3. **Ranks the sentences.** Each sentence scores higher when the other outlets report the same facts (TF-IDF
    similarity), when it is about the story's headlines, and when it comes early in its article, because news stories
    lead with the essentials.
-4. **Writes the summary.** The best sentence that makes sense on its own opens the summary. Up to two more follow,
-   each adding new facts: sentences that mostly repeat what is already said, or that start with "He", "They", or
-   "But" without their preceding sentence, are skipped. Summaries are kept to about 60 words.
+4. **Writes the summary.** The best sentence that makes sense on its own opens the summary. More follow until it
+   reaches 100 words, each adding new facts: sentences that mostly repeat what is already said, or that start with
+   "He", "They", or "But" without their preceding sentence, are skipped. Sentences about the headline's subject come
+   first, then other sentences from the story's own article. Summaries are 100–120 words when the pages hold enough
+   text; when no page can be read, only the feed's short description is shown.
 
 The summary uses the outlets' own sentences; it does not rewrite them. The photo is the preview image the page names
 (Open Graph, Twitter, or JSON-LD), or else the main photo in the article itself; if the story's own page has none, it
