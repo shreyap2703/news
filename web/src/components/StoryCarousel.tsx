@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { fetchStorySummary } from '../api.ts'
 import type { Article } from '../types.ts'
+import { AskAiButton, AskAiPanel } from './AskAi.tsx'
 import { Spinner } from './Status.tsx'
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
@@ -38,6 +39,10 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
   const [summaries, setSummaries] = useState<Partial<Record<string, Article | null>>>({})
   // Image URLs that failed to load, so the card drops the empty picture frame instead of showing a broken image.
   const [brokenImages, setBrokenImages] = useState<ReadonlySet<string>>(() => new Set())
+  // The story whose Ask AI conversation is open, if any.
+  const [chatUrl, setChatUrl] = useState<string | null>(null)
+  const chatPanelId = useId()
+  const askButtonRef = useRef<HTMLButtonElement>(null)
   const total = articles.length
   useEffect(() => {
     setIndex(0)
@@ -59,7 +64,11 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
 
   if (!article) return null
 
-  const step = (offset: number) => setIndex((previous) => ((previous < total ? previous : 0) + offset + total) % total)
+  const step = (offset: number) => {
+    setChatUrl(null)
+    setIndex((previous) => ((previous < total ? previous : 0) + offset + total) % total)
+  }
+  const chatOpen = chatUrl === article.url
   const summary = summaries[article.url]
   const shown = summary ?? article
   const summarizing = article.url !== '' && summary === undefined
@@ -106,9 +115,27 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
           shown.context && <p className="story-context">{shown.context}</p>
         )}
         {article.url && (
-          <a className="story-link" href={article.url} target="_blank" rel="noopener noreferrer">
-            Open the original article <span aria-hidden="true">↗</span>
-          </a>
+          <div className="story-actions">
+            <a className="story-link" href={article.url} target="_blank" rel="noopener noreferrer">
+              Open the original article <span aria-hidden="true">↗</span>
+            </a>
+            <AskAiButton
+              ref={askButtonRef}
+              expanded={chatOpen}
+              panelId={chatPanelId}
+              onToggle={() => setChatUrl(chatOpen ? null : article.url)}
+            />
+          </div>
+        )}
+        {chatOpen && (
+          <AskAiPanel
+            id={chatPanelId}
+            article={article}
+            onClose={() => {
+              setChatUrl(null)
+              askButtonRef.current?.focus()
+            }}
+          />
         )}
       </article>
     </div>

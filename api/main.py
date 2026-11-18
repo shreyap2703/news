@@ -5,14 +5,16 @@ from typing import Annotated
 
 import openai
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
+from .ask import answer_question, describe_error, nvidia_api_key
 from .briefing import summarize_headlines
-from .models import Article, BriefingRequest, BriefingResponse, Category, NewsResponse
-from .news import CATEGORIES, CATEGORIES_BY_ID, NewsCategory, get_news, get_story_summary
+from .models import Article, AskRequest, BriefingRequest, BriefingResponse, Category, NewsResponse
+from .news import CATEGORIES, CATEGORIES_BY_ID, NewsCategory, get_article_for_questions, get_news, get_story_summary
 
 WEB_DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
@@ -88,6 +90,35 @@ def read_story_summary(
     if article is None:
         raise HTTPException(status_code=404, detail="Unknown story. Only stories listed by /api/news can be summarized.")
     return article
+
+
+@app.post(
+    "/api/news/ask",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/plain": {}}, "description": "The answer, streamed as plain text."}},
+)
+def ask_about_article(request: AskRequest) -> StreamingResponse:
+    """Answer a question about a listed story from its article's text, with an NVIDIA-hosted model."""
+    if not nvidia_api_key():
+        raise HTTPException(
+            status_code=503,
+            detail="Ask AI is not set up yet: start the API server with an NVIDIA API key in NVIDIA_API_KEY "
+            "(see the README).",
+        )
+    found = get_article_for_questions(request.url)
+    if found is None:
+        raise HTTPException(status_code=404, detail="Unknown story. Refresh the headlines, then ask again.")
+    article, text = found
+    try:
+        answer = answer_question(article, text, request.question, request.history)
+    except openai.OpenAIError as exc:
+        raise HTTPException(status_code=502, detail=describe_error(exc)) from exc
+    # X-Accel-Buffering stops proxies such as nginx from holding the answer back until it is complete.
+    return StreamingResponse(
+        answer,
+        media_type="text/plain; charset=utf-8",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.post("/api/briefing")

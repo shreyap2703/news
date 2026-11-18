@@ -1,4 +1,4 @@
-import type { Article, BriefingResponse, Category, NewsResponse } from './types.ts'
+import type { Article, BriefingResponse, Category, ChatTurn, NewsResponse } from './types.ts'
 
 export interface NewsQuery {
   category: string
@@ -29,7 +29,7 @@ async function readErrorDetail(response: Response): Promise<string> {
   return `The news API responded with ${status}.`
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function send(path: string, init: RequestInit = {}): Promise<Response> {
   let response: Response
   try {
     response = await fetch(path, {
@@ -43,6 +43,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     throw new Error(await readErrorDetail(response))
   }
+  return response
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await send(path, init)
   return (await response.json()) as T
 }
 
@@ -71,4 +76,48 @@ export function createBriefing(
     body: JSON.stringify({ category, hours, limit, apiKey }),
     signal,
   })
+}
+
+export interface ArticleQuestion {
+  /** The article's `url` from a recent /api/news response. */
+  url: string
+  question: string
+  /** Earlier questions and answers about the article, oldest first. */
+  history: ChatTurn[]
+}
+
+/**
+ * Asks Ask AI a question about an article. The answer streams in: `onText` receives the answer so far each time more
+ * of it arrives, and the promise resolves to the whole answer.
+ */
+export async function askAboutArticle(
+  { url, question, history }: ArticleQuestion,
+  onText: (answer: string) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  const response = await send('/api/news/ask', {
+    method: 'POST',
+    body: JSON.stringify({ url, question, history }),
+    signal,
+  })
+  let answer = ''
+  try {
+    if (!response.body) {
+      answer = await response.text()
+      onText(answer)
+      return answer
+    }
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) return answer
+      answer += value
+      onText(answer)
+    }
+  } catch (error) {
+    if (signal?.aborted) throw error
+    throw new Error('The connection to the news API was lost while the answer was arriving. Please ask again.', {
+      cause: error,
+    })
+  }
 }
