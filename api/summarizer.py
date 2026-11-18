@@ -9,8 +9,10 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 SUMMARY_MIN_WORDS = 8
-SUMMARY_MAX_WORDS = 60
-SUMMARY_MAX_SENTENCES = 3
+# Summaries keep adding sentences until they reach SUMMARY_TARGET_WORDS, and never pass SUMMARY_MAX_WORDS.
+SUMMARY_TARGET_WORDS = 100
+SUMMARY_MAX_WORDS = 120
+SUMMARY_MAX_SENTENCES = 8
 # Longer sentences are usually run-ons or lists, which read badly out of context.
 MAX_SENTENCE_WORDS = 45
 # Weights of the two signals that rank sentences for a multi-source summary: support from other outlets, and
@@ -24,9 +26,6 @@ FULL_SENTENCE_WORDS = 18
 REDUNDANCY_LIMIT = 0.4
 REDUNDANCY_PENALTY = 0.5
 MIN_NEW_TERMS = 4
-# Extra sentences must score at least this share of the opening sentence's score. Details that only one outlet
-# reports score well below facts that every outlet confirms, so the bar is low; relevance is checked separately.
-MIN_RELATIVE_SCORE = 0.2
 # Sentences must share this many key terms with the story's headlines (one, for headlines of three terms or fewer).
 MIN_TOPIC_TERMS = 2
 
@@ -70,7 +69,7 @@ _JUNK_RE = re.compile(
     r"subscri|newsletter|sign up|log ?in\b|cookie|advertis|all rights reserved|©|copyright|click here|read more|"
     r"follow us|download (?:the|our) app|terms of (?:use|service)|privacy policy|our standards|reporting by|"
     r"editing by|writing by|contributed to this report|(?:image|photo|video|watch|listen|related)\s*:|javascript|"
-    r"your browser|per month|free trial|cancel anytime",
+    r"your browser|per month|free trial|cancel anytime|\bstoryline \d",
     re.IGNORECASE,
 )
 _COMPLETE_SENTENCE_RE = re.compile(r"[.!?][\"'”’)]*$")
@@ -360,30 +359,21 @@ def _select(sentences: list[_Sentence], max_words: int, max_sentences: int) -> l
     lead = next((sentence for sentence in ranked if _stands_alone(sentence.text)), None)
     if lead is None:
         return []
+    # The lead's own article is about the story even where a sentence does not repeat the headline's terms, so its
+    # other sentences may follow once the on-topic ones run out.
+    own_article = sorted(
+        (s for s in sentences if not s.on_topic and s.source == lead.source),
+        key=lambda sentence: sentence.score,
+        reverse=True,
+    )
     chosen = [lead]
     covered = set(lead.terms)
     used_words = lead.words
-    while len(chosen) < max_sentences:
-        best: Optional[_Sentence] = None
-        best_value = 0.0
-        for sentence in ranked:
-            if any(sentence is picked for picked in chosen) or used_words + sentence.words > max_words:
-                continue
-            # Term coverage rather than weighted similarity, so that paraphrases of chosen sentences count as repeats
-            # while sentences that only share the story's setting (names, dates) do not.
-            overlap = len(sentence.terms & covered) / len(sentence.terms) if sentence.terms else 1.0
-            # A sentence such as "She said..." may only follow the sentence it continues.
-            continues = any(p.source == sentence.source and p.position == sentence.position - 1 for p in chosen)
-            if (
-                overlap >= REDUNDANCY_LIMIT
-                or len(sentence.terms - covered) < MIN_NEW_TERMS
-                or not (_stands_alone(sentence.text) or continues)
-            ):
-                continue
-            value = sentence.score - REDUNDANCY_PENALTY * overlap
-            if best is None or value > best_value:
-                best, best_value = sentence, value
-        if best is None or best.score < MIN_RELATIVE_SCORE * lead.score:
+    while len(chosen) < max_sentences and used_words < SUMMARY_TARGET_WORDS:
+        best = _best_addition(ranked, chosen, covered, used_words, max_words) or _best_addition(
+            own_article, chosen, covered, used_words, max_words
+        )
+        if best is None:
             break
         chosen.append(best)
         covered |= best.terms
@@ -391,6 +381,32 @@ def _select(sentences: list[_Sentence], max_words: int, max_sentences: int) -> l
     # The lead opens; sentences from its own article follow in their original order, then the other outlets'.
     rest = sorted(chosen[1:], key=lambda s: (s.source != lead.source, s.source, s.position))
     return [lead, *rest]
+
+
+def _best_addition(
+    candidates: list[_Sentence], chosen: list[_Sentence], covered: set[str], used_words: int, max_words: int
+) -> Optional[_Sentence]:
+    """Return the candidate that adds the most new facts without repeating the chosen sentences, or None."""
+    best: Optional[_Sentence] = None
+    best_value = 0.0
+    for sentence in candidates:
+        if any(sentence is picked for picked in chosen) or used_words + sentence.words > max_words:
+            continue
+        # Term coverage rather than weighted similarity, so that paraphrases of chosen sentences count as repeats
+        # while sentences that only share the story's setting (names, dates) do not.
+        overlap = len(sentence.terms & covered) / len(sentence.terms) if sentence.terms else 1.0
+        # A sentence such as "She said..." may only follow the sentence it continues.
+        continues = any(p.source == sentence.source and p.position == sentence.position - 1 for p in chosen)
+        if (
+            overlap >= REDUNDANCY_LIMIT
+            or len(sentence.terms - covered) < MIN_NEW_TERMS
+            or not (_stands_alone(sentence.text) or continues)
+        ):
+            continue
+        value = sentence.score - REDUNDANCY_PENALTY * overlap
+        if best is None or value > best_value:
+            best, best_value = sentence, value
+    return best
 
 
 def _stands_alone(text: str) -> bool:

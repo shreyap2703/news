@@ -1,3 +1,4 @@
+import { hyphenateSync } from 'hyphen/en'
 import { useEffect, useId, useRef, useState } from 'react'
 import { fetchStorySummary } from '../api.ts'
 import type { Article } from '../types.ts'
@@ -112,7 +113,8 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
         {summarizing ? (
           <Spinner label="Reading this story's coverage from several outlets…" />
         ) : (
-          shown.context && <p className="story-context">{shown.context}</p>
+          // Soft hyphens let long words break across lines, so the justified summary has no wide gaps.
+          shown.context && <p className="story-context">{hyphenateSync(shown.context)}</p>
         )}
         {article.url && (
           <div className="story-actions">
