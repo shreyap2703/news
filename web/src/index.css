@@ -705,8 +705,11 @@ a.button {
   max-width: 68ch;
   margin: 0 0 1.25rem;
   color: rgba(223, 238, 255, 0.88);
-  font-size: clamp(1rem, 0.92rem + 0.45cqi, 1.125rem);
-  line-height: 1.7;
+  font-size: clamp(0.95rem, 0.9rem + 0.25cqi, 1.02rem);
+  line-height: 1.65;
+  text-align: justify;
+  hyphens: auto;
+  hyphenate-limit-chars: 6 3 3;
   text-wrap: pretty;
   overflow-wrap: break-word;
 }
@@ -749,10 +752,10 @@ a.button {
 /* Wide cards place the text beside the picture, so the headline, picture and summary all fit on one screen. */
 @container story (min-width: 50rem) {
   .story.has-media {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
     grid-template-rows: auto auto auto 1fr;
     grid-template-areas:
-      'meta media'
+      'meta meta'
       'title media'
       'body media'
       'link media';
@@ -782,6 +785,13 @@ a.button {
   .story.has-media > .story-actions {
     grid-area: link;
     align-self: start;
+  }
+}
+
+/* Narrow cards: justified lines hold too few words and open wide gaps, so the summary is left-aligned instead. */
+@container story (max-width: 36rem) {
+  .story-context {
+    text-align: left;
   }
 }
 
