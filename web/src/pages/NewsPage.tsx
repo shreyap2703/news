@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { errorMessage, fetchCategories, fetchNews, type NewsQuery } from '../api.ts'
+import { useBriefingMenu } from '../briefingMenu.ts'
 import Sidebar from '../components/Sidebar.tsx'
 import { Alert, Spinner } from '../components/Status.tsx'
 import StoryCarousel from '../components/StoryCarousel.tsx'
@@ -25,6 +27,16 @@ export default function NewsPage() {
   const [news, setNews] = useState<LoadedNews | null>(null)
   const [newsError, setNewsError] = useState<string | null>(null)
   const [settledQuery, setSettledQuery] = useState<NewsQuery | null>(null)
+  const { open: menuOpen, setOpen: setMenuOpen, buttonRef: menuButtonRef } = useBriefingMenu()
+
+  // The briefing menu belongs to this page, so it closes when the page is left.
+  useEffect(() => () => setMenuOpen(false), [setMenuOpen])
+
+  const closeMenu = () => {
+    // The top bar stops being inert once the menu has closed, and only then can its button take the focus back.
+    flushSync(() => setMenuOpen(false))
+    menuButtonRef.current?.focus()
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -98,6 +110,8 @@ export default function NewsPage() {
   }
 
   const refresh = () => {
+    // On phones the settings are a menu; refreshing closes it so the headlines come into view.
+    if (menuOpen) closeMenu()
     if (categories.length === 0) {
       setCategoriesError(null)
       setCategoriesAttempt((attempt) => attempt + 1)
@@ -113,6 +127,7 @@ export default function NewsPage() {
 
   return (
     <div className="dashboard">
+      {menuOpen && <div className="sidebar-backdrop" aria-hidden="true" onClick={closeMenu} />}
       <Sidebar
         categories={categories}
         category={query.category}
@@ -122,9 +137,11 @@ export default function NewsPage() {
         onHoursChange={(hours) => updateQuery({ hours })}
         onLimitChange={(limit) => updateQuery({ limit })}
         onRefresh={refresh}
+        menuOpen={menuOpen}
+        onCloseMenu={closeMenu}
       />
 
-      <main className="main">
+      <main className="main" inert={menuOpen}>
         <header className="hero">
           <div className="hero-badge" aria-hidden="true">
             🌍

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, matchPath, useLocation } from 'react-router'
 import { displayName, useAuth } from '../auth.ts'
+import { BRIEFING_SETTINGS_ID, useBriefingMenu } from '../briefingMenu.ts'
 import { logOut } from '../supabase.ts'
 
 /** The log in and sign up forms have nothing to search, so the search bar is hidden there. */
@@ -15,6 +16,9 @@ export default function NavBar() {
   const { pathname } = useLocation()
   const name = user ? displayName(user, profile) : ''
   const showSearch = !PAGES_WITHOUT_SEARCH.some((path) => matchPath(path, pathname))
+  // The briefing settings belong to the headlines page, so only it gets the menu button (which phones show).
+  const showMenuButton = matchPath('/', pathname) !== null
+  const { open: menuOpen, setOpen: setMenuOpen, buttonRef: menuButtonRef } = useBriefingMenu()
   const [searchValue, setSearchValue] = useState('')
   const [scrolled, setScrolled] = useState(false)
 
@@ -32,7 +36,8 @@ export default function NavBar() {
   }
 
   return (
-    <header className={`navbar ${scrolled ? 'is-scrolled' : ''}`}>
+    // While the briefing menu is open, the bar sits behind its backdrop and is out of reach of the keyboard.
+    <header className={`navbar ${scrolled ? 'is-scrolled' : ''}`} inert={menuOpen}>
       <nav className="navbar-links" aria-label="Main">
         <NavLink to="/" end className="navbar-link">
           Headlines
@@ -51,6 +56,21 @@ export default function NavBar() {
       <div className="navbar-actions">
         {showSearch && (
           <div className="navbar-search" role="search">
+            {showMenuButton && (
+              <button
+                ref={menuButtonRef}
+                type="button"
+                className="navbar-menu"
+                aria-label="Briefing settings"
+                aria-controls={BRIEFING_SETTINGS_ID}
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(!menuOpen)}
+              >
+                <span aria-hidden="true" />
+                <span aria-hidden="true" />
+                <span aria-hidden="true" />
+              </button>
+            )}
             <input
               type="text"
               value={searchValue}
