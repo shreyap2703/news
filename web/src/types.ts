@@ -24,3 +24,9 @@ export interface NewsResponse {
 export interface BriefingResponse {
   briefing: string
 }
+
+/** A question or answer in a conversation with Ask AI about an article. */
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+}

@@ -1,5 +1,5 @@
 """Google News RSS retrieval with a 10-minute cache and bundled fallback headlines, plus story summaries built from
-several outlets' coverage when a story is opened."""
+several outlets' coverage when a story is opened, and the article text that Ask AI answers questions from."""
 
 import json
 import logging
@@ -46,6 +46,8 @@ ARTICLE_REQUEST_TIMEOUT_SECONDS = 10
 STORY_SOURCES_DEADLINE_SECONDS = 15
 # When no page has arrived by the deadline, the ones still loading get this much longer, rather than no summary.
 STORY_SOURCES_GRACE_SECONDS = 15
+# How long a question waits for its article's page; after that it is answered from the headline and summary.
+QUESTION_PAGE_DEADLINE_SECONDS = 20
 SUMMARY_WORKERS = 4
 # Some publishers answer with HTTP 429 when several requests arrive at once.
 MAX_REQUESTS_PER_PUBLISHER = 2
@@ -69,6 +71,8 @@ MAX_PAGE_BYTES = 2 * 1024 * 1024
 # The opening paragraphs carry a news story's essentials; later ones are kept out of the summary's reach.
 MAX_PAGE_PASSAGES = 14
 MAX_PASSAGE_CHARS = 1500
+# Questions about an article are answered from its text, up to about 2,000 words.
+MAX_ARTICLE_TEXT_CHARS = 12_000
 # Photos in the page are only used when it names no preview image; smaller images are icons, logos, or avatars.
 MIN_CONTENT_IMAGE_PIXELS = 200
 # Other outlets' reports of the same story read for its summary, plus copies of the story itself (syndicated wire
@@ -201,6 +205,8 @@ class ArticleDetails:
     image_url: str = ""
     # Descriptions first, then the article's opening paragraphs.
     passages: tuple[str, ...] = ()
+    # The article's own text, for answering questions about it.
+    text: str = ""
 
 
 def _load_fallback_headlines() -> dict[str, tuple[Article, ...]]:
@@ -440,6 +446,28 @@ def get_story_summary(article_url: str) -> Optional[Article]:
     if not live:
         return article
     return _story_summaries.get(article_url, _summarize_story, article).result().article
+
+
+def get_article_for_questions(article_url: str) -> Optional[tuple[Article, str]]:
+    """Return a listed article and its page's text, for answering questions about it, or None if it is not listed.
+
+    Only listed articles are read, so questions cannot be used to make the server fetch arbitrary pages. The text is
+    "" when the page cannot be read in time, and for backup headlines, whose pages are not requested.
+    """
+    with _listed_articles_lock:
+        entry = _listed_articles.get(article_url)
+    if entry is None:
+        return None
+    article, live = entry
+    if not live:
+        return article, ""
+    # The page is usually cached already, because opening the story summarized it.
+    lookup = _page_lookups.get(article_url, _read_article_page, article_url, article.title)
+    wait((lookup,), timeout=QUESTION_PAGE_DEADLINE_SECONDS)
+    details = lookup.result() if lookup.done() else ArticleDetails()
+    if not article.context and details.summary:
+        article = article.model_copy(update={"context": details.summary})
+    return article, details.text
 
 
 def _summarize_story(article: Article) -> _StorySummary:
@@ -886,6 +914,7 @@ def _article_details_from_page(page_html: str, page_url: str, title: str) -> Art
         summary=summary,
         image_url=image_url,
         passages=tuple(_truncate(text, MAX_PASSAGE_CHARS) for text in passages[:MAX_PAGE_PASSAGES]),
+        text=_truncate("\n\n".join(clean_text(text) for text in article_text), MAX_ARTICLE_TEXT_CHARS),
     )
 
 
