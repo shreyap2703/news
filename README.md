@@ -16,12 +16,14 @@ React fits this app well:
   development. The Supabase client (about 56 KB more) loads separately, and only when accounts are set up.
 - **Natural port from Streamlit:** widgets become controlled components, `st.session_state` becomes `useState`, and
   Streamlit's script reruns become React re-renders.
-- **Ecosystem:** for example, `react-markdown` safely renders the AI briefing, replacing `st.markdown`.
+- **Ecosystem:** for example, `react-markdown` safely renders AI-written Markdown such as Ask AI's answers, replacing
+  `st.markdown`.
 
 ## Architecture
 
 ```text
 Browser ── React app (web/) ──/api──▶ FastAPI (api/) ──▶ Publishers' RSS feeds (Google News RSS as backup)
+                 │                                  ├──▶ NVIDIA API (optional Ask AI answers)
                  │                                  └──▶ OpenAI API (optional AI briefing)
                  └────────────────────────────────────▶ Supabase (optional accounts and profiles)
 ```
@@ -46,6 +48,7 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 │   ├── main.py                   App, routes, and hosting of the built UI (web/dist)
 │   ├── news.py                   Publisher and Google News feeds, 10-minute cache, fallback, coverage for story summaries
 │   ├── summarizer.py             Text clean-up and the multi-source story summarizer
+│   ├── ask.py                    Ask AI: answers questions about an article with an NVIDIA model
 │   ├── briefing.py               Optional OpenAI briefing
 │   ├── models.py                 Request/response schemas (camelCase JSON)
 │   └── fallback_headlines.json   Backup headlines used when the live feed is unavailable
@@ -57,7 +60,7 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 │   │   ├── main.tsx              Entry point: router and auth provider
 │   │   ├── App.tsx               Navigation bar and page routes
 │   │   ├── pages/                NewsPage (headlines dashboard), AuthPage (log in, sign up), ProfilePage
-│   │   ├── components/           NavBar, AuthProvider, Sidebar, StoryCarousel, BriefingPanel, Status
+│   │   ├── components/           NavBar, AuthProvider, Sidebar, StoryCarousel, AskAi, BriefingPanel, Status
 │   │   ├── api.ts                Typed client for the /api endpoints
 │   │   ├── filters.ts            Sidebar filter options, kept across page reloads in session storage
 │   │   ├── supabase.ts           Supabase client and profile queries
@@ -74,6 +77,7 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 - Python 3.10 or newer
 - Node.js 22.22 or newer (required by React Router)
 - Optional: a free [Supabase](https://supabase.com) project, for user accounts
+- Optional: a free NVIDIA API key from [build.nvidia.com](https://build.nvidia.com), for Ask AI
 
 ## Run it (development)
 
@@ -134,6 +138,46 @@ By default, Supabase asks new users to confirm their email address before they c
 development you can turn off **Confirm email** under **Authentication → Sign In / Providers → Email**; for real use,
 set up custom SMTP.
 
+## Set up Ask AI (NVIDIA)
+
+Each story has an **Ask AI** button beside **Open the original article**. Hovering over it shows "Ask any question
+related to this article"; clicking it opens a conversation below the story, where you type a question (or pick a
+suggested one) and the answer appears as the model writes it. Answers come from a model in NVIDIA's API catalog,
+`nvidia/nemotron-3.5-lightning-30b-a3b` (NVIDIA Nemotron) by default.
+
+Headlines work without this step; until it is done, Ask AI replies that it is not set up yet. To turn it on:
+
+1. Sign in at [build.nvidia.com](https://build.nvidia.com), open any model, and choose **Get API Key**. The key starts
+   with `nvapi-`.
+2. Start the API with the key in `NVIDIA_API_KEY`. The key stays on the server; the browser never sees it.
+
+   ```bash
+   export NVIDIA_API_KEY="nvapi-..."
+   uvicorn api.main:app --reload --reload-dir api --port 8000
+   ```
+
+   Restart uvicorn after setting or changing the key: a running server does not see new environment variables.
+
+Optional settings, also read from the environment:
+
+| Variable          | Default                                 | Purpose |
+| ----------------- | --------------------------------------- | ------- |
+| `NVIDIA_MODEL`    | `nvidia/nemotron-3.5-lightning-30b-a3b` | Another chat model from the catalog, for example `nvidia/nemotron-3-ultra-550b-a55b` (larger and slower). |
+| `NVIDIA_BASE_URL` | `https://integrate.api.nvidia.com/v1`   | A self-hosted NVIDIA NIM, or another OpenAI-compatible server. |
+
+How it answers:
+
+- The backend reads the article's page (the same cached read that builds the story's summary) and sends the model
+  the headline, publisher, publication time, description, and up to about 12,000 characters (2,000 words) of the
+  article's text, with your question and up to four earlier questions and answers, so follow-up questions make sense.
+- The model is told to answer only from the article, to say when the article does not answer the question, and to
+  ignore any instructions inside the article's text. Its reasoning mode is turned off for quicker answers.
+- When the page cannot be read (for example because the site refuses automated requests), the model has only the
+  headline and description, and says so when they do not answer the question.
+- Only stories listed by `/api/news` can be asked about, so the endpoint cannot be used to fetch arbitrary pages.
+  Answers are shown without links or images.
+- Each story keeps its conversation until the page is reloaded, so moving to another story and back keeps it.
+
 ## Run it (production build)
 
 ```bash
@@ -170,6 +214,7 @@ Interactive documentation is available at http://localhost:8000/docs while the A
 | GET    | `/api/categories` | News sections, for example `[{"id": "world", "label": "Top World News"}, ...]`. |
 | GET    | `/api/news`       | Headlines for a section. Query: `category` (required), `hours` (1–168, default 24), `limit` (1–50, default 30), `q` (optional search term that replaces the section's default topic), `refresh` (`true` clears the cache). Returns `{category, hours, articles, usingFallback}`. |
 | GET    | `/api/news/summary` | One story with a two- or three-sentence summary built from several outlets' coverage (see [Story summaries and images](#story-summaries-and-images)). Query: `url` (an article `url` from a recent `/api/news` response; other URLs get a 404). Returns the article, with the summary in `context`. |
+| POST   | `/api/news/ask`   | Ask AI (see [Set up Ask AI](#set-up-ask-ai-nvidia)). Body `{"url", "question", "history"}`: `url` is an article `url` from a recent `/api/news` response (other URLs get a 404), `question` is up to 1,000 characters, and `history` lists earlier `{"role", "content"}` messages, with `role` either `"user"` or `"assistant"`. Streams the answer as plain text. Returns 503 when `NVIDIA_API_KEY` is not set, and 502 with an explanation when the NVIDIA API refuses the request. |
 | POST   | `/api/briefing`   | Body `{"category", "hours", "limit", "apiKey"}`. Summarizes up to 20 current headlines with `gpt-4.1-mini` using the caller's own key and returns `{"briefing": "<markdown>"}`. |
 
 Accounts do not use this API; the browser calls Supabase directly.
@@ -182,6 +227,9 @@ Accounts do not use this API; the browser calls Supabase directly.
   a section's feeds answers, or nothing in them matches, headlines come from the public Google News RSS feed instead.
 - Summarizes each story in two or three sentences when you open it, combining what several outlets report about it,
   and shows the article's photo (see [Story summaries and images](#story-summaries-and-images)).
+- Answers your questions about a story with **Ask AI**, an NVIDIA model that reads the article: the button sits beside
+  **Open the original article**, and the conversation opens below the story (see
+  [Set up Ask AI](#set-up-ask-ai-nvidia)).
 - Offers sections for world news, India, IPL cricket, AI/technology, business/economy, science/space, and
   politics/geopolitics.
 - Searches any topic with the box above the headlines (across every section's feeds); choosing another section
@@ -222,6 +270,9 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
 - The UI no longer shows the AI briefing, but the `/api/briefing` endpoint still works. It summarizes headlines only,
   not the full articles, so open the source links and verify important claims. The OpenAI API key is sent only with
   the briefing request and is never stored by this app.
+- Ask AI sends your question, the earlier questions and answers about that story, and the article's text to the NVIDIA
+  API (or the server in `NVIDIA_BASE_URL`); keys from build.nvidia.com fall under NVIDIA's API trial terms. AI
+  answers can be wrong, so check important facts in the original article.
 - Supabase Auth stores account passwords (hashed) and issues the session, which the browser keeps in local storage.
   Profiles live in the Supabase `profiles` table, and Row Level Security limits each user to their own row.
 - This project runs locally. Public hosting requires deploying it to a hosting provider and configuring any required
@@ -237,7 +288,7 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
   http://localhost:5173, or start it with `npm run dev -- --host 127.0.0.1`.
 - **The app always shows backup headlines.** The backend cannot reach the news feeds. On a corporate network with TLS
   inspection, Python may not trust the proxy's certificate: set `REQUESTS_CA_BUNDLE` (news feeds) and
-  `SSL_CERT_FILE` (OpenAI) to your corporate CA bundle before starting uvicorn.
+  `SSL_CERT_FILE` (OpenAI and NVIDIA) to your corporate CA bundle before starting uvicorn.
 - **Some stories show only the headline, without a summary or photo.** Every outlet covering the story refuses
   automated requests (for example with HTTP 401, 403, or 429), or builds its page with JavaScript, which the backend
   does not run. Stories whose pages were briefly unreachable are tried again when you return to them. See
@@ -250,6 +301,14 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
   `npm run dev`; for the production build, run `npm run build` again.
 - **Logging in fails with "Email not confirmed".** Open the confirmation link that Supabase emailed you, or turn off
   **Confirm email** for local testing.
+- **Ask AI says it is not set up yet.** The API server was started without `NVIDIA_API_KEY`. Set it and restart
+  uvicorn (see [Set up Ask AI](#set-up-ask-ai-nvidia)).
+- **Ask AI says "Could not reach the NVIDIA API".** Check the server's internet connection. On a corporate network
+  with TLS inspection, set `SSL_CERT_FILE` to your corporate CA bundle before starting uvicorn.
+- **Ask AI says "The NVIDIA API did not accept the API key".** The key is wrong or was revoked. Create a new one at
+  [build.nvidia.com](https://build.nvidia.com), set `NVIDIA_API_KEY` again, and restart uvicorn.
+- **Ask AI says "Unknown story. Refresh the headlines, then ask again."** The API server restarted since the
+  headlines loaded, and it keeps the list of stories it can answer about in memory. Click **Refresh headlines**.
 - **The confirmation link opens http://localhost:3000 or another wrong address.** Set the **Site URL** and
   **Redirect URLs** in Supabase (step 3 of [Set up accounts](#set-up-accounts-supabase)).
 - **Sign-up fails with "Database error saving new user", or the profile page says "The profiles table was not
