@@ -708,8 +708,7 @@ a.button {
   font-size: clamp(0.95rem, 0.9rem + 0.25cqi, 1.02rem);
   line-height: 1.65;
   text-align: justify;
-  hyphens: auto;
-  hyphenate-limit-chars: 6 3 3;
+  hyphens: manual;
   text-wrap: pretty;
   overflow-wrap: break-word;
 }
@@ -785,13 +784,6 @@ a.button {
   .story.has-media > .story-actions {
     grid-area: link;
     align-self: start;
-  }
-}
-
-/* Narrow cards: justified lines hold too few words and open wide gaps, so the summary is left-aligned instead. */
-@container story (max-width: 36rem) {
-  .story-context {
-    text-align: left;
   }
 }
 
