@@ -484,7 +484,8 @@ def _summarize_story(article: Article) -> _StorySummary:
         # Without a combined summary, the first page's own description will do: the story's, or else a copy's or
         # another report's.
         fallback = next((d.summary for d in details if d.summary), "")
-        image_url = article.image_url or next((d.image_url for d in details if d.image_url), "")
+        # The story's own page names a full-size photo; feeds often carry only a small thumbnail.
+        image_url = details[0].image_url or article.image_url or next((d.image_url for d in details if d.image_url), "")
         story = article.model_copy(update={"context": summary or fallback or article.context, "image_url": image_url})
         return _StorySummary(story, complete=all(lookup.done() for lookup in lookups))
     except Exception:
@@ -671,13 +672,16 @@ def _parse_item(entry: ET.Element) -> Optional[Article]:
 
 
 def _extract_image_url(entry: ET.Element) -> str:
-    """Return an image embedded in the feed item. Google News items have none; see _read_article_page instead."""
-    for tag in ("{http://search.yahoo.com/mrss/}thumbnail", "{http://search.yahoo.com/mrss/}content"):
-        element = entry.find(tag)
-        if element is not None and element.get("url"):
-            candidate = _http_url(element.get("url")) or ""
-            if candidate and not _is_google_placeholder(candidate):
-                return candidate
+    """Return the largest image embedded in the feed item. Google News items have none; see _read_article_page."""
+    media = "{http://search.yahoo.com/mrss/}"
+    candidates = []
+    for element in [*entry.findall(f"{media}content"), *entry.findall(f"{media}thumbnail")]:
+        candidate = _http_url(element.get("url"))
+        if candidate and not _is_google_placeholder(candidate):
+            width = element.get("width") or ""
+            candidates.append((int(width) if width.isdigit() else 0, candidate))
+    if candidates:
+        return max(candidates, key=lambda pair: pair[0])[1]
     enclosure = entry.find("enclosure")
     if enclosure is not None and (enclosure.get("type") or "").startswith("image/"):
         return _http_url(enclosure.get("url"))
