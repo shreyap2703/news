@@ -1,6 +1,8 @@
 """Request and response schemas shared by the API routes."""
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, StringConstraints
 from pydantic.alias_generators import to_camel
 
 
@@ -41,3 +43,16 @@ class BriefingRequest(ApiModel):
 
 class BriefingResponse(ApiModel):
     briefing: str
+
+
+class AskMessage(ApiModel):
+    """An earlier question or answer in the conversation about an article."""
+
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=8000)
+
+
+class AskRequest(ApiModel):
+    url: str = Field(min_length=1, max_length=2048, description="Article URL from a recent /api/news response.")
+    question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
+    history: list[AskMessage] = Field(default_factory=list, max_length=20)
