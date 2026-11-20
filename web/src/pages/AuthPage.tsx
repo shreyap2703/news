@@ -54,8 +54,12 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const text = TEXT[mode]
 
   // Signed-in users do not need this page. This also completes a successful login or sign-up: the auth listener
-  // stores the new session, and this redirect runs on the next render.
-  if (user) return <Navigate to={redirectTarget(location.state)} replace />
+  // stores the new session, and this redirect runs on the next render. An account just created on this form goes on
+  // to the welcome page to set up its preferences; logging in never does.
+  if (user) {
+    const justSignedUp = mode === 'signup' && submit.status === 'submitting'
+    return <Navigate to={justSignedUp ? '/welcome' : redirectTarget(location.state)} replace />
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

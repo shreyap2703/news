@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { errorMessage, fetchCategories, fetchNews, type NewsQuery } from '../api.ts'
+import { useAuth } from '../auth.ts'
 import { useBriefingMenu } from '../briefingMenu.ts'
 import Sidebar from '../components/Sidebar.tsx'
 import { Alert, Spinner } from '../components/Status.tsx'
 import StoryCarousel from '../components/StoryCarousel.tsx'
 import { loadFilters, saveFilters } from '../filters.ts'
+import { orderSections, parsePreferences } from '../preferences.ts'
 import type { Category, NewsResponse } from '../types.ts'
 
 interface LoadedNews {
@@ -20,7 +22,7 @@ export default function NewsPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [categoriesError, setCategoriesError] = useState<string | null>(null)
   const [categoriesAttempt, setCategoriesAttempt] = useState(0)
-  // The section is picked once the list arrives, so a saved one that no longer exists is never requested.
+  // An empty category means "not picked yet": the default section below is used until the reader picks one.
   const [query, setQuery] = useState<NewsQuery>({ ...savedFilters, category: '' })
   const [submittedSearch, setSubmittedSearch] = useState('')
   const [searchVersion, setSearchVersion] = useState(0)
@@ -28,6 +30,7 @@ export default function NewsPage() {
   const [newsError, setNewsError] = useState<string | null>(null)
   const [settledQuery, setSettledQuery] = useState<NewsQuery | null>(null)
   const { open: menuOpen, setOpen: setMenuOpen, buttonRef: menuButtonRef } = useBriefingMenu()
+  const { profile } = useAuth()
 
   // The briefing menu belongs to this page, so it closes when the page is left.
   useEffect(() => () => setMenuOpen(false), [setMenuOpen])
@@ -38,27 +41,30 @@ export default function NewsPage() {
     menuButtonRef.current?.focus()
   }
 
+  // Signed-in readers see the sections they chose on the welcome page first, and open on the first of them.
+  const savedPreferences = profile.status === 'ready' ? profile.profile?.preferences : null
+  const preferredSections = useMemo(() => parsePreferences(savedPreferences)?.sections ?? [], [savedPreferences])
+  const orderedCategories = useMemo(() => orderSections(categories, preferredSections), [categories, preferredSections])
+  // The section chosen earlier in this tab wins; one that no longer exists is never requested.
+  const defaultCategory = categories.some((item) => item.id === savedFilters.category)
+    ? savedFilters.category
+    : (orderedCategories[0]?.id ?? '')
+  const category = query.category || defaultCategory
+
   useEffect(() => {
     const controller = new AbortController()
     fetchCategories(controller.signal)
-      .then((items) => {
-        setCategories(items)
-        setQuery((current) => {
-          if (current.category || items.length === 0) return current
-          const saved = items.find((item) => item.id === savedFilters.category)
-          return { ...current, category: (saved ?? items[0]).id }
-        })
-      })
+      .then(setCategories)
       .catch((error: unknown) => {
         if (!controller.signal.aborted) setCategoriesError(errorMessage(error))
       })
     return () => controller.abort()
-  }, [categoriesAttempt, savedFilters.category])
+  }, [categoriesAttempt])
 
   useEffect(() => {
-    // Nothing is saved until a section is picked, so the saved choices survive the first render after a reload.
-    if (query.category) saveFilters({ category: query.category, hours: query.hours, limit: query.limit })
-  }, [query.category, query.hours, query.limit])
+    // Nothing is saved until a section is known, so the saved choices survive the first render after a reload.
+    if (category) saveFilters({ category, hours: query.hours, limit: query.limit })
+  }, [category, query.hours, query.limit])
 
   useEffect(() => {
     const handleSearchFromNav = (event: Event) => {
@@ -73,29 +79,30 @@ export default function NewsPage() {
   }, [])
 
   useEffect(() => {
-    if (!query.category) return
+    if (!category) return
     const controller = new AbortController()
     const activeSearch = submittedSearch.trim()
-    fetchNews({ ...query, search: activeSearch || undefined }, controller.signal)
+    const request = { ...query, category, search: activeSearch || undefined }
+    fetchNews(request, controller.signal)
       .then((data) => {
         if (controller.signal.aborted) return
         setNews((previous) => ({ data, version: (previous?.version ?? 0) + 1 }))
         setNewsError(null)
-        setSettledQuery({ ...query, search: activeSearch || undefined })
+        setSettledQuery(request)
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
         setNewsError(errorMessage(error))
-        setSettledQuery({ ...query, search: activeSearch || undefined })
+        setSettledQuery(request)
       })
     return () => controller.abort()
-  }, [query, submittedSearch, searchVersion])
+  }, [query, category, submittedSearch, searchVersion])
 
   // Previous results stay visible (dimmed) while a new request is in flight.
   const loading =
-    query.category !== '' &&
+    category !== '' &&
     (!settledQuery ||
-      query.category !== settledQuery.category ||
+      category !== settledQuery.category ||
       query.hours !== settledQuery.hours ||
       query.limit !== settledQuery.limit ||
       (submittedSearch || '') !== (settledQuery.search || '') ||
@@ -129,8 +136,8 @@ export default function NewsPage() {
     <div className="dashboard">
       {menuOpen && <div className="sidebar-backdrop" aria-hidden="true" onClick={closeMenu} />}
       <Sidebar
-        categories={categories}
-        category={query.category}
+        categories={orderedCategories}
+        category={category}
         hours={query.hours}
         limit={query.limit}
         onCategoryChange={handleCategoryChange}

@@ -1,6 +1,8 @@
 // Types for the Supabase tables this app uses, matching supabase/migrations. If you change the schema, update this
 // file or regenerate it with: npx supabase gen types typescript --project-id <project-ref> > src/database.types.ts
 
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+
 export type Database = {
   public: {
     Tables: {
@@ -8,18 +10,21 @@ export type Database = {
         Row: {
           id: string
           full_name: string | null
+          preferences: Json | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id: string
           full_name?: string | null
+          preferences?: Json | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           full_name?: string | null
+          preferences?: Json | null
           created_at?: string
           updated_at?: string
         }

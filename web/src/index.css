@@ -717,7 +717,7 @@ a.button {
   font-weight: 700;
   line-height: 1.22;
   letter-spacing: -0.022em;
-  text-wrap: balance;
+  text-wrap: pretty;
   overflow-wrap: break-word;
 }
 
@@ -753,9 +753,12 @@ a.button {
   max-width: 68ch;
   margin: 0 0 1.25rem;
   color: rgba(223, 238, 255, 0.88);
-  font-size: clamp(0.95rem, 0.9rem + 0.25cqi, 1.02rem);
-  line-height: 1.65;
+  font-size: clamp(1.02rem, 0.96rem + 0.3cqi, 1.1rem);
+  line-height: 1.7;
   text-align: justify;
+  /* Spreads a stretched line's extra space between letters as well as words, so no single gap opens up next to a
+     word that cannot be hyphenated (such as a name). */
+  text-justify: inter-character;
   hyphens: manual;
   text-wrap: pretty;
   overflow-wrap: break-word;
@@ -803,7 +806,7 @@ a.button {
     grid-template-rows: auto auto auto 1fr;
     grid-template-areas:
       'meta meta'
-      'title media'
+      'title title'
       'body media'
       'link media';
     column-gap: clamp(1.5rem, 3cqi, 2.5rem);
@@ -817,9 +820,10 @@ a.button {
     grid-area: title;
   }
 
+  /* Centred beside the text, so a long summary does not leave an empty space under the picture. */
   .story.has-media > .story-image {
     grid-area: media;
-    align-self: start;
+    align-self: center;
     aspect-ratio: 4 / 3;
     max-height: none;
     margin: 0;
@@ -829,9 +833,18 @@ a.button {
     grid-area: body;
   }
 
+  /* Once measured (in StoryCarousel), the picture is placed as close to the middle of the whole card as it can be
+     without reaching the full-width headline. */
+  .story.has-media.picture-placed > .story-image {
+    grid-row: 1 / -1;
+    align-self: start;
+    margin-top: var(--picture-top);
+  }
+
   .story.has-media > .story-actions {
     grid-area: link;
-    align-self: start;
+    /* At the bottom of the card, even when the picture makes the card taller than the text. */
+    align-self: end;
   }
 }
 
@@ -1351,9 +1364,303 @@ a.button {
   overflow-wrap: anywhere;
 }
 
+/* Preferences (welcome) page */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.pref-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 52rem;
+}
+
+.pref-welcome .page-title {
+  margin-bottom: 0.4rem;
+  font-size: clamp(1.5rem, 1.2rem + 1.4vw, 2.1rem);
+}
+
+.pref-welcome .caption {
+  margin: 0;
+}
+
+.pref-progress {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.pref-progress span {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.pref-progress span.done {
+  background: linear-gradient(90deg, #7dd3fc, #3b82f6);
+}
+
+.pref-step-label {
+  margin: 0;
+  color: var(--accent-soft);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pref-card {
+  padding: clamp(1.1rem, 3vw, 1.9rem);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.35);
+  animation: story-enter 0.3s ease both;
+}
+
+.pref-card h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.35rem;
+}
+
+.pref-group {
+  margin-top: 1.5rem;
+}
+
+.pref-group h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.pref-hint {
+  margin: 0 0 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.pref-optional {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.pref-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.pref-tags {
+  margin-top: 0.75rem;
+}
+
+.pref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.05);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.pref-chip:hover {
+  border-color: rgba(125, 211, 252, 0.55);
+}
+
+.pref-chip[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.2);
+  color: #fff;
+  font-weight: 600;
+}
+
+.pref-chip[aria-pressed='true']::before {
+  content: '✓';
+  color: var(--accent-soft);
+}
+
+.pref-tags .pref-chip::before {
+  content: none;
+}
+
+.pref-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+}
+
+.pref-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.pref-tile:hover {
+  border-color: rgba(125, 211, 252, 0.45);
+}
+
+.pref-tile[aria-pressed='true'] {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.pref-tile span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.pref-field {
+  margin-top: 0.75rem;
+}
+
+.pref-field input,
+.pref-row input[type='time'] {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.pref-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 1rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.pref-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.pref-toggle strong {
+  display: block;
+}
+
+.pref-toggle div span {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.pref-switch {
+  position: relative;
+  flex: none;
+  width: 2.9rem;
+  height: 1.6rem;
+}
+
+.pref-switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pref-switch span[aria-hidden] {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.3);
+  pointer-events: none;
+  transition: background 0.2s ease;
+}
+
+.pref-switch span[aria-hidden]::after {
+  content: '';
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+}
+
+.pref-switch input:checked + span {
+  background: var(--accent);
+}
+
+.pref-switch input:checked + span::after {
+  transform: translateX(1.3rem);
+}
+
+.pref-switch input:focus-visible + span {
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+
+.pref-preview {
+  margin: 1.25rem 0 0;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--accent-soft);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.pref-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pref-buttons {
+  display: flex;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.pref-skip {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Responsive & motion */
 
-/* Medium widths: the title sits beside the Headlines link instead of in the centre, so the search box keeps a usable
+/* Medium widths: the title sits beside the Home link instead of in the centre, so the search box keeps a usable
    width next to the account buttons. */
 @media (min-width: 901px) and (max-width: 1279px) {
   .navbar {

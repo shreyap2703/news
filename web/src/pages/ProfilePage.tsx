@@ -1,6 +1,6 @@
 import type { User } from '@supabase/supabase-js'
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation } from 'react-router'
+import { Link, Navigate, useLocation } from 'react-router'
 import { errorMessage } from '../api.ts'
 import { MAX_NAME_LENGTH, signUpName, useAuth } from '../auth.ts'
 import { Alert, Spinner } from '../components/Status.tsx'
@@ -68,6 +68,13 @@ function ProfileForm({ user, profile }: { user: User; profile: Profile | null })
           {save.status === 'saving' ? 'Saving...' : 'Save changes'}
         </button>
       </form>
+
+      <p className="auth-switch">
+        Want different headlines?{' '}
+        <Link to="/welcome" className="text-link">
+          Edit your reading preferences
+        </Link>
+      </p>
     </>
   )
 }
