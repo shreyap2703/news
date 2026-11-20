@@ -53,7 +53,7 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 │   ├── models.py                 Request/response schemas (camelCase JSON)
 │   └── fallback_headlines.json   Backup headlines used when the live feed is unavailable
 ├── supabase/
-│   └── migrations/               SQL for the profiles table, its access rules, and the sign-up trigger
+│   └── migrations/               SQL for the profiles table (with preferences), its access rules, and the sign-up trigger
 ├── web/                          React + TypeScript frontend (Vite)
 │   ├── .env.example              Template for web/.env.local (Supabase URL and publishable key)
 │   ├── src/
@@ -119,6 +119,9 @@ not set up yet. To turn accounts on:
    [`supabase/migrations/20261113141500_create_profiles.sql`](supabase/migrations/20261113141500_create_profiles.sql),
    and click **Run**. It creates the `profiles` table, protects it with Row Level Security, and adds a trigger that
    creates a profile for every new user. (With the Supabase CLI, `supabase db push` applies the same file.)
+   Then run
+   [`supabase/migrations/20261119170000_add_profile_preferences.sql`](supabase/migrations/20261119170000_add_profile_preferences.sql)
+   the same way: it adds the `preferences` column that the welcome page saves to.
 3. In **Authentication → URL Configuration**, set **Site URL** to `http://localhost:5173`, and add
    `http://localhost:5173/**` and `http://localhost:8000/**` to **Redirect URLs**. Confirmation emails link back to
    the app through these addresses.
@@ -247,6 +250,12 @@ Accounts do not use this API; the browser calls Supabase directly.
   and a **Log out** button.
 - Lets you sign up with your name, email address, and password, and keeps you logged in across reloads.
 - Stores your profile (name and sign-up date) in Supabase, where you can view and edit it on the profile page.
+- Right after sign-up (or after opening the email confirmation link), a three-step welcome page at `/welcome` asks for
+  your reading preferences:
+  sections, topics to follow, city, languages, summary length, topics to mute, theme, sources, and email and
+  breaking-news updates. They are saved in the `preferences` column of your profile, and you can change them from the
+  profile page. Your sections already take effect: the headlines open on your first pick, and the sidebar lists your
+  picks first. The other answers are stored for features still to come.
 
 ## Changes from the Streamlit version
 
@@ -317,6 +326,8 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
   **Redirect URLs** in Supabase (step 3 of [Set up accounts](#set-up-accounts-supabase)).
 - **Sign-up fails with "Database error saving new user", or the profile page says "The profiles table was not
   found".** The SQL migration has not been run in this Supabase project, or it failed. Run it in the SQL Editor.
+- **The welcome or profile page says "The profiles table has no preferences column yet".** Run
+  `supabase/migrations/20261119170000_add_profile_preferences.sql` in the SQL Editor.
 
 ## Story summaries and images
 

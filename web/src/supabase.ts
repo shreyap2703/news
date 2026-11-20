@@ -1,9 +1,9 @@
 import type { PostgrestError, Session, SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from './database.types.ts'
+import type { Database, Json } from './database.types.ts'
 
 export type Profile = Database['public']['Tables']['profiles']['Row']
 
-const PROFILE_COLUMNS = 'id, full_name, created_at, updated_at'
+const PROFILE_COLUMNS = 'id, full_name, preferences, created_at, updated_at'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.trim() ?? ''
 const PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ?? ''
 
@@ -83,7 +83,8 @@ export async function signUp(email: string, password: string, fullName: string):
     options: {
       // The on_auth_user_created trigger copies the name into the user's new row in the profiles table.
       data: { full_name: fullName },
-      emailRedirectTo: window.location.origin,
+      // The confirmation link (when the project requires one) finishes sign-up on the welcome page.
+      emailRedirectTo: `${window.location.origin}/welcome`,
     },
   })
   if (error) throw await toAuthError(error)
@@ -104,6 +105,13 @@ function profileError(error: PostgrestError): Error {
       'The profiles table was not found. Run the SQL in supabase/migrations in your Supabase project (see the README).',
     )
   }
+  // 42703: Postgres has no such column; PGRST204: the Data API does not know it yet.
+  if ((error.code === '42703' || error.code === 'PGRST204') && error.message.includes('preferences')) {
+    return new Error(
+      'The profiles table has no preferences column yet. Run supabase/migrations/20261119170000_add_profile_preferences.sql ' +
+        'in your Supabase project (see the README).',
+    )
+  }
   return new Error(error.message)
 }
 
@@ -121,6 +129,19 @@ export async function saveProfile(userId: string, fullName: string): Promise<Pro
   const { data, error } = await supabase
     .from('profiles')
     .upsert({ id: userId, full_name: fullName })
+    .select(PROFILE_COLUMNS)
+    .single()
+  if (error) throw profileError(error)
+  return data
+}
+
+/** Saves the user's reading preferences on their profile and returns the saved row. */
+export async function savePreferences(userId: string, preferences: Json): Promise<Profile> {
+  const supabase = await getSupabase()
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ preferences })
+    .eq('id', userId)
     .select(PROFILE_COLUMNS)
     .single()
   if (error) throw profileError(error)

@@ -1,11 +1,49 @@
 import { hyphenateSync } from 'hyphen/en'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { fetchStorySummary } from '../api.ts'
 import type { Article } from '../types.ts'
 import { AskAiButton, AskAiPanel } from './AskAi.tsx'
 import { Spinner } from './Status.tsx'
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+// Space kept between the headline and a picture centred on the whole card.
+const IMAGE_HEADLINE_GAP = 16
+
+/**
+ * How far from the top of the card's content the picture should start: centred on the whole card when it stays clear
+ * of the full-width headline, otherwise just below the headline. Only the text is measured (the picture's height
+ * comes from its fixed aspect ratio, and the buttons' height rather than their position is used, since they sit at
+ * the bottom of the card), so placing the picture never changes the answer. Null when the card has no picture.
+ */
+function pictureOffset(card: HTMLElement): number | null {
+  const image = card.querySelector('.story-image')
+  const title = card.querySelector('.story-title')
+  const body = card.querySelector('.story-context, .spinner')
+  const actions = card.querySelector('.story-actions')
+  if (!image || !title || !body || !actions) return null
+  const style = getComputedStyle(card)
+  const top = card.getBoundingClientRect().top + parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop)
+  const textHeight =
+    body.getBoundingClientRect().bottom -
+    top +
+    parseFloat(getComputedStyle(body).marginBottom) +
+    actions.getBoundingClientRect().height
+  const centred = (textHeight - image.getBoundingClientRect().height) / 2
+  return Math.round(Math.max(centred, title.getBoundingClientRect().bottom - top + IMAGE_HEADLINE_GAP))
+}
+
+/** Re-measures pictureOffset whenever the card changes size: a new summary, a resized window, and so on. */
+function usePictureOffset(card: HTMLElement | null): number | null {
+  const [result, setResult] = useState<{ card: HTMLElement; offset: number | null } | null>(null)
+  useEffect(() => {
+    if (!card) return
+    const observer = new ResizeObserver(() => setResult({ card, offset: pictureOffset(card) }))
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [card])
+  // A result measured on the previous story's card does not apply to this one.
+  return result !== null && result.card === card ? result.offset : null
+}
 
 // Shared by every carousel, so returning to a section reuses the summaries that were already built.
 const summaryLookups = new Map<string, Promise<Article | null>>()
@@ -44,6 +82,8 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
   const [chatUrl, setChatUrl] = useState<string | null>(null)
   const chatPanelId = useId()
   const askButtonRef = useRef<HTMLButtonElement>(null)
+  const [card, setCard] = useState<HTMLElement | null>(null)
+  const pictureTop = usePictureOffset(card)
   const total = articles.length
   useEffect(() => {
     setIndex(0)
@@ -76,6 +116,9 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
   const imageUrl = shown.imageUrl && !brokenImages.has(shown.imageUrl) ? shown.imageUrl : ''
   // While the summary loads, a placeholder holds the picture's place so the layout does not jump when it arrives.
   const hasMedia = imageUrl !== '' || summarizing
+  const cardClass = ['news-card story', hasMedia && 'has-media', pictureTop !== null && 'picture-placed']
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div className="carousel">
@@ -92,7 +135,12 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
       </div>
 
       {/* Keyed by story so each one gets a fresh card and its entrance animation. */}
-      <article key={article.url || current} className={hasMedia ? 'news-card story has-media' : 'news-card story'}>
+      <article
+        key={article.url || current}
+        ref={setCard}
+        className={cardClass}
+        style={pictureTop !== null ? ({ '--picture-top': `${pictureTop}px` } as CSSProperties) : undefined}
+      >
         <p className="news-meta">
           <span className="news-source">{article.source}</span>
           {article.language && <span className="news-lang">{article.language}</span>}

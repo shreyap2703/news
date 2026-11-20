@@ -40,7 +40,7 @@ export default function NavBar() {
     <header className={`navbar ${scrolled ? 'is-scrolled' : ''}`} inert={menuOpen}>
       <nav className="navbar-links" aria-label="Main">
         <NavLink to="/" end className="navbar-link">
-          Headlines
+          Home
         </NavLink>
       </nav>
 
