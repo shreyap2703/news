@@ -268,7 +268,6 @@ export function AskAiPanel({ id, article, onClose }: AskAiPanelProps) {
           </button>
         )}
       </form>
-      <p className="ask-ai-note">Answers are written by an NVIDIA AI model from this article and can contain mistakes.</p>
     </section>
   )
 }

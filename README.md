@@ -2,16 +2,16 @@
 
 A small local web app for recent world, India, AI, business, science, and geopolitics headlines.
 It has a **React + TypeScript** frontend (Vite) and a small **FastAPI** backend, plus optional user accounts
-(log in, sign up, and a profile page) powered by **Supabase**. It was converted from the original single-file
-Streamlit app.
+(log in, sign up, a profile page, and a settings page) powered by **Supabase**. It was converted from the original
+single-file Streamlit app.
 
 ## Why React
 
 React fits this app well:
 
 - **Right-sized:** the app is one dashboard view (sidebar filters, topic search, and a story carousel) plus small
-  log in, sign-up, and profile pages, and React + Vite (with React Router for the pages) delivers it with very little
-  boilerplate.
+  log in, sign-up, profile, and settings pages, and React + Vite (with React Router for the pages) delivers it with
+  very little boilerplate.
 - **Small and fast:** about 87 KB of gzipped JavaScript to show the headlines, with instant hot reload in
   development. The Supabase client (about 56 KB more) loads separately, and only when accounts are set up.
 - **Natural port from Streamlit:** widgets become controlled components, `st.session_state` becomes `useState`, and
@@ -59,8 +59,8 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 │   ├── src/
 │   │   ├── main.tsx              Entry point: router, auth provider, and briefing menu provider
 │   │   ├── App.tsx               Navigation bar and page routes
-│   │   ├── pages/                NewsPage (headlines dashboard), AuthPage (log in, sign up), ProfilePage
-│   │   ├── components/           NavBar, AuthProvider, BriefingMenuProvider, Sidebar, StoryCarousel, AskAi, BriefingPanel, Status
+│   │   ├── pages/                NewsPage (headlines dashboard), AuthPage (log in, sign up), ProfilePage, SettingsPage, WelcomePage (reading preferences)
+│   │   ├── components/           NavBar, ProfileMenu, AuthProvider, BriefingMenuProvider, AccountPage, Sidebar, StoryCarousel, AskAi, BriefingPanel, Status
 │   │   ├── api.ts                Typed client for the /api endpoints
 │   │   ├── filters.ts            Sidebar filter options, kept across page reloads in session storage
 │   │   ├── supabase.ts           Supabase client and profile queries
@@ -246,10 +246,12 @@ Accounts do not use this API; the browser calls Supabase directly.
 - Caches results for 10 minutes; use **Refresh headlines** to fetch again.
 - Shows bundled backup headlines if the live feed is unreachable, and retries the feed after a minute.
 - Has a navigation bar on every page with **Log in** and **Sign up**. Accounts are optional: the headlines page is
-  the default page and never requires one. After logging in, the bar shows your name, which links to your profile,
-  and a **Log out** button.
+  the default page and never requires one. After logging in, the bar shows a round badge with the first two letters
+  of your name instead. Hovering over it (or clicking or tapping it) opens a see-through menu with your name and email,
+  **Profile**, **Settings**, and **Log out**.
 - Lets you sign up with your name, email address, and password, and keeps you logged in across reloads.
-- Stores your profile (name and sign-up date) in Supabase, where you can view and edit it on the profile page.
+- Stores your profile (name and sign-up date) in Supabase. The **Profile** page shows it, and the **Settings** page is
+  where you change your name.
 - Right after sign-up (or after opening the email confirmation link), a three-step welcome page at `/welcome` asks for
   your reading preferences:
   sections, topics to follow, city, languages, summary length, topics to mute, theme, sources, and email and
