@@ -123,9 +123,18 @@ select {
   height: var(--navbar-height);
   padding: 0 clamp(1rem, 3vw, 2rem);
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  transition: box-shadow 0.2s ease;
+}
+
+/* The bar's tinted, blurred background is drawn here rather than on the bar itself: a backdrop-filter on the bar
+   would stop the profile menu, which hangs below it, from blurring the page behind the menu. */
+.navbar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: rgba(5, 13, 24, 0.85);
   backdrop-filter: blur(14px);
-  transition: box-shadow 0.2s ease;
 }
 
 .navbar.is-scrolled {
@@ -283,31 +292,152 @@ select {
   white-space: nowrap;
 }
 
+/* The signed-in user's round badge, with the first two letters of their name. A ring appears around it on hover and
+   while its menu is open. */
 .navbar-user {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
+  display: inline-grid;
+  place-items: center;
+  padding: 0.2rem;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
   color: var(--text-strong);
-  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.navbar-user:hover,
+.navbar-user[aria-expanded='true'] {
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(148, 163, 184, 0.12);
 }
 
 .navbar-user .avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.8rem;
-  height: 1.8rem;
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
   border-radius: 50%;
   background: rgba(148, 163, 184, 0.18);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
 }
 
-.navbar-user-name {
-  max-width: clamp(6rem, 8vw, 10rem);
+/* Profile menu: opens below the avatar, right-aligned with it */
+
+.profile-menu {
+  position: relative;
+}
+
+/* The top padding bridges the gap between the button and the menu, so moving the pointer down to it keeps it open. */
+.profile-menu-panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  width: max-content;
+  min-width: 13.5rem;
+  max-width: min(18rem, calc(100vw - 1.5rem));
+  padding-top: 0.5rem;
+}
+
+/* See-through: the page shows, blurred, behind the menu. */
+.profile-menu-card {
+  padding: 0.4rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+  background: rgba(13, 25, 44, 0.58);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: 0 18px 40px -14px rgba(2, 6, 23, 0.85);
+  animation: profile-menu-in 0.16s ease both;
+}
+
+@keyframes profile-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.3rem);
+  }
+}
+
+.profile-menu-who {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0 0 0.3rem;
+  padding: 0.5rem 0.7rem 0.6rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.profile-menu-name,
+.profile-menu-email {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile-menu-name {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+
+.profile-menu-email {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.profile-menu-items {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.profile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.profile-menu-item:hover,
+.profile-menu-item:focus-visible {
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--text-strong);
+}
+
+/* The page that is open. */
+.profile-menu-item.active {
+  color: var(--accent-soft);
+}
+
+.profile-menu-log-out {
+  margin-top: 0.3rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.profile-menu-log-out .profile-menu-item {
+  color: #fca5a5;
+}
+
+.profile-menu-log-out .profile-menu-item:hover,
+.profile-menu-log-out .profile-menu-item:focus-visible {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecaca;
 }
 
 .main > .hero,
@@ -1184,12 +1314,6 @@ a.button {
   cursor: not-allowed;
 }
 
-.ask-ai-note {
-  margin: 0;
-  color: var(--caption);
-  font-size: 0.78rem;
-}
-
 /* Read out to screen readers only. */
 .ask-ai-sr {
   position: absolute;
@@ -1809,20 +1933,6 @@ a.button {
   .navbar-search input {
     font-size: 1rem;
   }
-
-  /* The avatar remains, so the bar fits on phones. The name stays available to screen readers. */
-  .navbar-user-name {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .navbar-user {
-    padding-right: 0.25rem;
-  }
 }
 
 /* Phones: the title gets its own row above the buttons, so it stays readable instead of being squeezed out. */
@@ -1981,7 +2091,8 @@ a.button {
   .story-image-placeholder,
   .ask-ai-panel,
   .ask-ai-dots span,
-  .sidebar-backdrop {
+  .sidebar-backdrop,
+  .profile-menu-card {
     animation: none;
   }
 
@@ -1991,6 +2102,8 @@ a.button {
   .navbar,
   .navbar-link,
   .navbar-menu,
+  .navbar-user,
+  .profile-menu-item,
   .sidebar,
   .story-link,
   .ask-ai-button,

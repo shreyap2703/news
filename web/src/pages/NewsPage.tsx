@@ -176,12 +176,6 @@ export default function NewsPage() {
             )}
           </section>
         )}
-
-        <hr className="divider" />
-        <p className="caption">
-          The Daily Pulse is an independent news reader, not a publisher. It does not verify every claim
-          automatically. Compare multiple reputable sources for major or breaking events.
-        </p>
       </main>
     </div>
   )

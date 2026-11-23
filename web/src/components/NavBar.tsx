@@ -2,14 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, matchPath, useLocation } from 'react-router'
 import { displayName, useAuth } from '../auth.ts'
 import { BRIEFING_SETTINGS_ID, useBriefingMenu } from '../briefingMenu.ts'
-import { logOut } from '../supabase.ts'
+import ProfileMenu from './ProfileMenu.tsx'
 
 /** The log in and sign up forms have nothing to search, so the search bar is hidden there. */
 const PAGES_WITHOUT_SEARCH = ['/login', '/signup']
-
-function handleLogOut() {
-  logOut().catch((error: unknown) => console.error('Could not log out:', error))
-}
 
 export default function NavBar() {
   const { loading, user, profile } = useAuth()
@@ -91,17 +87,7 @@ export default function NavBar() {
         {!loading && (
           <div className="navbar-account">
             {user ? (
-              <>
-                <NavLink to="/profile" className="navbar-user" title="Your profile">
-                  <span className="avatar" aria-hidden="true">
-                    {(Array.from(name)[0] ?? '?').toUpperCase()}
-                  </span>
-                  <span className="navbar-user-name">{name}</span>
-                </NavLink>
-                <button type="button" className="button button-ghost button-small" onClick={handleLogOut}>
-                  Log out
-                </button>
-              </>
+              <ProfileMenu name={name} email={user.email ?? ''} />
             ) : (
               <>
                 <NavLink to="/login" className="button button-ghost button-small">
