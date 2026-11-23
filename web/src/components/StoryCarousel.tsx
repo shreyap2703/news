@@ -1,5 +1,5 @@
 import { hyphenateSync } from 'hyphen/en'
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { fetchStorySummary } from '../api.ts'
 import type { Article } from '../types.ts'
 import { AskAiButton, AskAiPanel } from './AskAi.tsx'
@@ -72,7 +72,13 @@ function formatPublished(value: string): string {
   return Number.isNaN(date.getTime()) ? value : dateFormatter.format(date)
 }
 
-export default function StoryCarousel({ articles }: { articles: Article[] }) {
+interface StoryCarouselProps<T extends Article> {
+  articles: T[]
+  /** Something to show beside the publisher's name, such as why a story is recommended. */
+  renderTag?: (article: T) => ReactNode
+}
+
+export default function StoryCarousel<T extends Article>({ articles, renderTag }: StoryCarouselProps<T>) {
   const [index, setIndex] = useState(0)
   // Story URL -> the story with its combined summary, or null when none could be built.
   const [summaries, setSummaries] = useState<Partial<Record<string, Article | null>>>({})
@@ -143,6 +149,7 @@ export default function StoryCarousel({ articles }: { articles: Article[] }) {
       >
         <p className="news-meta">
           <span className="news-source">{article.source}</span>
+          {renderTag?.(article)}
           {article.language && <span className="news-lang">{article.language}</span>}
           {article.published && <time dateTime={article.published}>{formatPublished(article.published)}</time>}
         </p>

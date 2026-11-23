@@ -1,33 +1,41 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { BRIEFING_SETTINGS_ID } from '../briefingMenu.ts'
 import { HEADLINE_LIMIT, LOOK_BACK_OPTIONS } from '../filters.ts'
 import type { Category } from '../types.ts'
 
 interface SidebarProps {
-  categories: Category[]
-  category: string
+  title?: string
+  /** The section list; left out when the page has no section to pick (the recommendations combine them). */
+  categories?: Category[]
+  category?: string
+  onCategoryChange?: (category: string) => void
   hours: number
   limit: number
-  onCategoryChange: (category: string) => void
   onHoursChange: (hours: number) => void
   onLimitChange: (limit: number) => void
   onRefresh: () => void
+  refreshLabel?: string
   /** On phones the settings are a menu opened from the top bar: whether it is open. */
   menuOpen: boolean
   onCloseMenu: () => void
+  /** Shown below the title, before the settings. */
+  children?: ReactNode
 }
 
 export default function Sidebar({
+  title = 'Your briefing',
   categories,
   category,
+  onCategoryChange,
   hours,
   limit,
-  onCategoryChange,
   onHoursChange,
   onLimitChange,
   onRefresh,
+  refreshLabel = 'Refresh headlines',
   menuOpen,
   onCloseMenu,
+  children,
 }: SidebarProps) {
   const sidebarRef = useRef<HTMLElement>(null)
 
@@ -50,26 +58,30 @@ export default function Sidebar({
       }}
     >
       <div className="sidebar-header">
-        <h2 className="sidebar-title">Your briefing</h2>
+        <h2 className="sidebar-title">{title}</h2>
         <button type="button" className="sidebar-close" aria-label="Close briefing settings" onClick={onCloseMenu}>
           <span aria-hidden="true">×</span>
         </button>
       </div>
 
-      <label className="field">
-        <span className="field-label">News section</span>
-        <select
-          value={category}
-          onChange={(event) => onCategoryChange(event.target.value)}
-          disabled={categories.length === 0}
-        >
-          {categories.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      {children}
+
+      {categories && onCategoryChange && (
+        <label className="field">
+          <span className="field-label">News section</span>
+          <select
+            value={category}
+            onChange={(event) => onCategoryChange(event.target.value)}
+            disabled={categories.length === 0}
+          >
+            {categories.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <label className="field">
         <span className="field-label">Look back</span>
@@ -99,7 +111,7 @@ export default function Sidebar({
       <span className="chip">English-only mode</span>
 
       <button type="button" className="button button-block" onClick={onRefresh}>
-        Refresh headlines
+        {refreshLabel}
       </button>
     </aside>
   )

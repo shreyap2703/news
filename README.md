@@ -2,16 +2,16 @@
 
 A small local web app for recent world, India, AI, business, science, and geopolitics headlines.
 It has a **React + TypeScript** frontend (Vite) and a small **FastAPI** backend, plus optional user accounts
-(log in, sign up, a profile page, and a settings page) powered by **Supabase**. It was converted from the original
-single-file Streamlit app.
+(log in, sign up, a profile page, a settings page, and a personalized **For you** page) powered by **Supabase**. It
+was converted from the original single-file Streamlit app.
 
 ## Why React
 
 React fits this app well:
 
-- **Right-sized:** the app is one dashboard view (sidebar filters, topic search, and a story carousel) plus small
-  log in, sign-up, profile, and settings pages, and React + Vite (with React Router for the pages) delivers it with
-  very little boilerplate.
+- **Right-sized:** the app is one dashboard view (sidebar filters, topic search, and a story carousel), reused for
+  the **For you** page, plus small log in, sign-up, profile, and settings pages, and React + Vite (with React Router
+  for the pages) delivers it with very little boilerplate.
 - **Small and fast:** about 87 KB of gzipped JavaScript to show the headlines, with instant hot reload in
   development. The Supabase client (about 56 KB more) loads separately, and only when accounts are set up.
 - **Natural port from Streamlit:** widgets become controlled components, `st.session_state` becomes `useState`, and
@@ -34,7 +34,8 @@ cannot read most news feeds directly (they do not allow cross-origin requests), 
 
 Accounts are optional, and the browser talks to Supabase directly: Supabase Auth handles sign-up, log in, and
 sessions, and a `profiles` table stores each user's profile. Row Level Security lets each user read and change only
-their own profile, so the FastAPI backend never handles passwords or profile data.
+their own profile, so the FastAPI backend never handles passwords and stores no profile data. The **For you** page
+sends it only the interests it needs (sections, followed topics, city, and what to leave out) with each request.
 
 - **Development:** the Vite dev server (port 5173) serves the UI and forwards `/api` requests to FastAPI (port 8000).
 - **Production:** `npm run build` writes the UI to `web/dist`, and FastAPI serves it, so one process on port 8000
@@ -48,6 +49,7 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 │   ├── main.py                   App, routes, and hosting of the built UI (web/dist)
 │   ├── news.py                   Publisher and Google News feeds, 10-minute cache, fallback, coverage for story summaries
 │   ├── summarizer.py             Text clean-up and the multi-source story summarizer
+│   ├── recommendations.py        The For you feed: a reader's sections, followed topics, and city combined into one list
 │   ├── ask.py                    Ask AI: answers questions about an article with an NVIDIA model
 │   ├── briefing.py               Optional OpenAI briefing
 │   ├── models.py                 Request/response schemas (camelCase JSON)
@@ -59,13 +61,13 @@ their own profile, so the FastAPI backend never handles passwords or profile dat
 │   ├── src/
 │   │   ├── main.tsx              Entry point: router, auth provider, and briefing menu provider
 │   │   ├── App.tsx               Navigation bar and page routes
-│   │   ├── pages/                NewsPage (headlines dashboard), AuthPage (log in, sign up), ProfilePage, SettingsPage, WelcomePage (reading preferences)
+│   │   ├── pages/                NewsPage (headlines dashboard), RecommendationsPage (For you), AuthPage (log in, sign up), ProfilePage, SettingsPage, WelcomePage (reading preferences)
 │   │   ├── components/           NavBar, ProfileMenu, AuthProvider, BriefingMenuProvider, AccountPage, Sidebar, StoryCarousel, AskAi, BriefingPanel, Status
 │   │   ├── api.ts                Typed client for the /api endpoints
 │   │   ├── filters.ts            Sidebar filter options, kept across page reloads in session storage
 │   │   ├── supabase.ts           Supabase client and profile queries
 │   │   ├── auth.ts               Auth context and hook (session and profile state)
-│   │   ├── briefingMenu.ts       Context for the phone menu that holds the briefing settings
+│   │   ├── briefingMenu.ts       Context for the phone menu that holds a page's settings (headlines and For you)
 │   │   ├── database.types.ts     Types for the Supabase tables
 │   │   ├── types.ts              API response types
 │   │   └── index.css             Dark theme (ported from the Streamlit custom CSS)
@@ -178,8 +180,8 @@ How it answers:
   ignore any instructions inside the article's text. Its reasoning mode is turned off for quicker answers.
 - When the page cannot be read (for example because the site refuses automated requests), the model has only the
   headline and description, and says so when they do not answer the question.
-- Only stories listed by `/api/news` can be asked about, so the endpoint cannot be used to fetch arbitrary pages.
-  Answers are shown without links or images.
+- Only stories listed by `/api/news` or `/api/recommendations` can be asked about, so the endpoint cannot be used to
+  fetch arbitrary pages. Answers are shown without links or images.
 - Each story keeps its conversation until the page is reloaded, so moving to another story and back keeps it.
 
 ## Run it (production build)
@@ -217,8 +219,9 @@ Interactive documentation is available at http://localhost:8000/docs while the A
 | ------ | ----------------- | ----------- |
 | GET    | `/api/categories` | News sections, for example `[{"id": "world", "label": "Top World News"}, ...]`. |
 | GET    | `/api/news`       | Headlines for a section. Query: `category` (required), `hours` (1–168, default 24), `limit` (1–50, default 30), `q` (optional search term that replaces the section's default topic), `refresh` (`true` clears the cache). Returns `{category, hours, articles, usingFallback}`. |
-| GET    | `/api/news/summary` | One story with a two- or three-sentence summary built from several outlets' coverage (see [Story summaries and images](#story-summaries-and-images)). Query: `url` (an article `url` from a recent `/api/news` response; other URLs get a 404). Returns the article, with the summary in `context`. |
-| POST   | `/api/news/ask`   | Ask AI (see [Set up Ask AI](#set-up-ask-ai-nvidia)). Body `{"url", "question", "history"}`: `url` is an article `url` from a recent `/api/news` response (other URLs get a 404), `question` is up to 1,000 characters, and `history` lists earlier `{"role", "content"}` messages, with `role` either `"user"` or `"assistant"`. Streams the answer as plain text. Returns 503 when `NVIDIA_API_KEY` is not set, and 502 with an explanation when the NVIDIA API refuses the request. |
+| GET    | `/api/news/summary` | One story with a two- or three-sentence summary built from several outlets' coverage (see [Story summaries and images](#story-summaries-and-images)). Query: `url` (an article `url` from a recent `/api/news` or `/api/recommendations` response; other URLs get a 404). Returns the article, with the summary in `context`. |
+| GET    | `/api/recommendations` | The **For you** feed (see [Recommendations](#recommendations-for-you)). Query: `section` (section ids, in the reader's order), `topic` (topics to follow), `city` (optional; only the part before a comma is searched), `mute` (topics to leave out), `hideSource` (publishers to leave out), `hours` (1–168, default 24), `limit` (1–50, default 30), `refresh` (`true` clears the cache). Repeat `section`, `topic`, `mute`, and `hideSource` for each value. Needs at least one known section, a topic, or a city (otherwise 400). Returns `{hours, articles, usingFallback}`; each article has a `reason` `{kind, label, sectionId}`, where `kind` is `topic`, `section`, or `city`. |
+| POST   | `/api/news/ask`   | Ask AI (see [Set up Ask AI](#set-up-ask-ai-nvidia)). Body `{"url", "question", "history"}`: `url` is an article `url` from a recent `/api/news` or `/api/recommendations` response (other URLs get a 404), `question` is up to 1,000 characters, and `history` lists earlier `{"role", "content"}` messages, with `role` either `"user"` or `"assistant"`. Streams the answer as plain text. Returns 503 when `NVIDIA_API_KEY` is not set, and 502 with an explanation when the NVIDIA API refuses the request. |
 | POST   | `/api/briefing`   | Body `{"category", "hours", "limit", "apiKey"}`. Summarizes up to 20 current headlines with `gpt-4.1-mini` using the caller's own key and returns `{"briefing": "<markdown>"}`. |
 
 Accounts do not use this API; the browser calls Supabase directly.
@@ -237,18 +240,19 @@ Accounts do not use this API; the browser calls Supabase directly.
 - Offers sections for world news, India, IPL cricket, AI/technology, business/economy, science/space, and
   politics/geopolitics.
 - Searches any topic with the box above the headlines (across every section's feeds); choosing another section
-  clears the search.
+  clears the search. Searching from another page, such as **For you**, shows the results on the headlines page.
 - Filters by the last 6 hours, 24 hours, or 3 days, and shows 10–50 headlines one story at a time (Previous/Next).
 - Keeps your section, time window, and number of headlines when you reload the page, for as long as the tab is open.
 - On phones, keeps the briefing settings (section, time window, number of headlines, and **Refresh headlines**) in a
   menu: tap ☰ beside the search to slide it open, and tap outside it, ×, or **Refresh headlines** (or press Esc) to
-  close it. Tablets and wider screens show the settings as before.
+  close it. The **For you** page keeps its settings in the same menu. Tablets and wider screens show the settings as
+  before.
 - Caches results for 10 minutes; use **Refresh headlines** to fetch again.
 - Shows bundled backup headlines if the live feed is unreachable, and retries the feed after a minute.
-- Has a navigation bar on every page with **Log in** and **Sign up**. Accounts are optional: the headlines page is
-  the default page and never requires one. After logging in, the bar shows a round badge with the first two letters
-  of your name instead. Hovering over it (or clicking or tapping it) opens a see-through menu with your name and email,
-  **Profile**, **Settings**, and **Log out**.
+- Has a navigation bar on every page with **Home** and **For you** links and **Log in** and **Sign up** buttons.
+  Accounts are optional: the headlines page is the default page and never requires one. After logging in, the bar
+  shows a round badge with the first two letters of your name instead of the buttons. Hovering over it (or clicking
+  or tapping it) opens a see-through menu with your name and email, **Profile**, **Settings**, and **Log out**.
 - Lets you sign up with your name, email address, and password, and keeps you logged in across reloads.
 - Stores your profile (name and sign-up date) in Supabase. The **Profile** page shows it, and the **Settings** page is
   where you change your name.
@@ -257,7 +261,36 @@ Accounts do not use this API; the browser calls Supabase directly.
   sections, topics to follow, city, languages, summary length, topics to mute, theme, sources, and email and
   breaking-news updates. They are saved in the `preferences` column of your profile, and you can change them from the
   profile page. Your sections already take effect: the headlines open on your first pick, and the sidebar lists your
-  picks first. The other answers are stored for features still to come.
+  picks first. Your sections, topics to follow, city, topics to mute, and sources build the **For you** page. The
+  other answers are stored for features still to come.
+- Shows a **For you** page (`/recommendations`) with stories from the sections, topics, and city you chose, combined
+  in one feed laid out like the headlines page. A tag on each story says which interest it comes from. The page asks
+  you to log in or sign up first, then brings you back (see [Recommendations](#recommendations-for-you)).
+
+## Recommendations (For you)
+
+The **For you** page turns your welcome-page answers into one feed. Visitors who are not logged in are asked to log
+in or create an account, and return to the page afterwards (new accounts pass through the welcome page first).
+Readers who have not chosen any sections, topics, or city yet get a link to choose them.
+
+The backend (`api/recommendations.py`) reads each interest, then merges the results:
+
+- **Sections** give their latest headlines, the same ones the headlines page shows.
+- **Topics to follow** and your **city** are searched across every section's feeds, like the search box. Only the
+  part of the city before a comma is searched ("Hyderabad, Telangana" becomes "Hyderabad"). Short topics that the
+  search cannot narrow down, such as "AI" or "UK", bring only stories that name them in the headline.
+- Stories are merged in rounds so that no single interest fills the feed: each round takes the next new story from
+  every interest, followed topics first (as the welcome page promises), then sections in the order you picked them,
+  then your city. A story appears once, even when several interests or several outlets' copies of it bring it in.
+- **Topics to mute** are recognized by the headline (live blogs and opinion pieces also by their address), and
+  **sources** you turned off are left out whatever a feed calls them (for example "BBC" or "BBC News"). Both apply
+  only to this page; the headlines page still shows every story.
+- A topic or city search that finds nothing adds nothing, rather than the backup headlines. A section's backup
+  headlines can still appear, with a note above the stories.
+
+The sidebar lists your interests and what is being left out, with **Edit your interests**, which opens the welcome
+page and returns here when you save or cancel. **Look back** and **Number of headlines** are shared with the
+headlines page, and **Refresh recommendations** fetches the stories again.
 
 ## Changes from the Streamlit version
 
@@ -323,7 +356,8 @@ The Streamlit app (`app.py`) has been replaced. It is still in git history: `git
 - **Ask AI says "The NVIDIA API did not accept the API key".** The key is wrong or was revoked. Create a new one at
   [build.nvidia.com](https://build.nvidia.com), set `NVIDIA_API_KEY` again, and restart uvicorn.
 - **Ask AI says "Unknown story. Refresh the headlines, then ask again."** The API server restarted since the
-  headlines loaded, and it keeps the list of stories it can answer about in memory. Click **Refresh headlines**.
+  headlines loaded, and it keeps the list of stories it can answer about in memory. Click **Refresh headlines** (or
+  **Refresh recommendations** on the **For you** page).
 - **The confirmation link opens http://localhost:3000 or another wrong address.** Set the **Site URL** and
   **Redirect URLs** in Supabase (step 3 of [Set up accounts](#set-up-accounts-supabase)).
 - **Sign-up fails with "Database error saving new user", or the profile page says "The profiles table was not

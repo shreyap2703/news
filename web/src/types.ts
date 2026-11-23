@@ -21,6 +21,25 @@ export interface NewsResponse {
   usingFallback: boolean
 }
 
+/** Which of the reader's interests a recommended story comes from. */
+export interface RecommendationReason {
+  kind: 'topic' | 'section' | 'city'
+  /** The followed topic, the section's label, or the city. */
+  label: string
+  /** For sections, the section's id; empty for topics and the city. */
+  sectionId: string
+}
+
+export interface RecommendedArticle extends Article {
+  reason: RecommendationReason
+}
+
+export interface RecommendationsResponse {
+  hours: number
+  articles: RecommendedArticle[]
+  usingFallback: boolean
+}
+
 export interface BriefingResponse {
   briefing: string
 }

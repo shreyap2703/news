@@ -7,16 +7,36 @@ import openai
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import StringConstraints
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import Response
 from starlette.types import Scope
 
 from .ask import answer_question, describe_error, nvidia_api_key
 from .briefing import summarize_headlines
-from .models import Article, AskRequest, BriefingRequest, BriefingResponse, Category, NewsResponse
-from .news import CATEGORIES, CATEGORIES_BY_ID, NewsCategory, get_article_for_questions, get_news, get_story_summary
+from .models import (
+    Article,
+    AskRequest,
+    BriefingRequest,
+    BriefingResponse,
+    Category,
+    NewsResponse,
+    RecommendationsResponse,
+)
+from .news import (
+    CATEGORIES,
+    CATEGORIES_BY_ID,
+    NewsCategory,
+    clear_cache,
+    get_article_for_questions,
+    get_news,
+    get_story_summary,
+)
+from .recommendations import NoInterestsError, recommend
 
 WEB_DIST_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
+# One followed topic, muted topic, or publisher name in a recommendations request.
+InterestText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)]
 
 
 class SinglePageApp(StaticFiles):
@@ -90,6 +110,39 @@ def read_story_summary(
     if article is None:
         raise HTTPException(status_code=404, detail="Unknown story. Only stories listed by /api/news can be summarized.")
     return article
+
+
+@app.get("/api/recommendations")
+def read_recommendations(
+    section: Annotated[
+        list[str] | None, Query(max_length=20, description="Section ids from /api/categories, in the reader's order.")
+    ] = None,
+    topic: Annotated[
+        list[InterestText] | None, Query(max_length=20, description="Topics the reader follows; their stories come first.")
+    ] = None,
+    city: Annotated[
+        str | None, Query(max_length=100, description='City or state for local news, for example "Hyderabad, Telangana".')
+    ] = None,
+    mute: Annotated[
+        list[InterestText] | None, Query(max_length=20, description='Topics to leave out, for example "Crime" or "Live blogs".')
+    ] = None,
+    hide_source: Annotated[
+        list[InterestText] | None, Query(alias="hideSource", max_length=50, description="Publishers to leave out.")
+    ] = None,
+    hours: Annotated[int, Query(ge=1, le=168, description="Look-back window in hours.")] = 24,
+    limit: Annotated[int, Query(ge=1, le=50, description="Maximum number of stories.")] = 30,
+    refresh: Annotated[bool, Query(description="Clear the 10-minute cache and fetch again.")] = False,
+) -> RecommendationsResponse:
+    """Return one feed combining the reader's sections, followed topics, and city, each story with its reason."""
+    if refresh:
+        clear_cache()
+    try:
+        articles, using_fallback = recommend(
+            section or [], topic or [], city or "", mute or [], hide_source or [], hours, limit
+        )
+    except NoInterestsError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return RecommendationsResponse(hours=hours, articles=articles, using_fallback=using_fallback)
 
 
 @app.post(

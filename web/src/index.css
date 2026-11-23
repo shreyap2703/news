@@ -102,6 +102,40 @@ select {
   display: none;
 }
 
+/* The recommendations' interests: sections, followed topics, and city, with what is left out. */
+.sidebar-interests {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.sidebar-interests .field-help {
+  margin: 0;
+}
+
+.interest-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.interest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.08);
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+
 .main {
   min-width: 0;
   /* Side padding grows on very wide screens so the stories never stretch past 76rem. */
@@ -177,6 +211,7 @@ select {
   grid-area: links;
   display: flex;
   align-items: center;
+  gap: 0.5rem;
   justify-self: start;
   min-width: 0;
 }
@@ -197,6 +232,12 @@ select {
 
 .navbar-link:hover {
   background: rgba(56, 189, 248, 0.18);
+}
+
+/* The page that is open. */
+.navbar-link.active {
+  background: rgba(56, 189, 248, 0.24);
+  box-shadow: inset 0 0 0 1px rgba(125, 211, 252, 0.5);
 }
 
 .navbar-brand-wrap {
@@ -838,6 +879,21 @@ a.button {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* Why a recommended story is shown: the followed topic, section, or city it comes from. */
+.news-reason {
+  max-width: 100%;
+  padding: 0.05rem 0.55rem;
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: 999px;
+  background: rgba(139, 92, 246, 0.14);
+  color: #ddd6fe;
+  font-size: 0.75rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .story-title {
@@ -1868,7 +1924,8 @@ a.button {
     border-bottom: 1px solid rgba(148, 163, 184, 0.15);
   }
 
-  .sidebar-header {
+  .sidebar-header,
+  .sidebar-interests {
     grid-column: 1 / -1;
   }
 
@@ -1957,6 +2014,11 @@ a.button {
     font-size: clamp(1.2rem, 0.85rem + 1.6vw, 1.4rem);
   }
 
+  /* With larger text settings the links wrap onto a second line instead of running under the log in buttons. */
+  .navbar-links {
+    flex-wrap: wrap;
+  }
+
   /* The section list gets the full width, so long section names are not cut off. */
   .sidebar .field:first-of-type {
     grid-column: 1 / -1;
@@ -1985,12 +2047,17 @@ a.button {
     padding-inline: 0.75rem;
   }
 
+  .navbar-links,
+  .navbar-account {
+    gap: 0.3rem;
+  }
+
   .navbar-link {
-    padding: 0.5rem 0.65rem;
+    padding: 0.5rem;
   }
 
   .navbar-account .button-small {
-    padding-inline: 0.7rem;
+    padding-inline: 0.55rem;
   }
 
   .sidebar .chip {
