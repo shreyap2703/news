@@ -422,6 +422,12 @@ def get_news(category: NewsCategory, hours: int, limit: int, refresh: bool = Fal
     return NewsResult(articles, result.using_fallback)
 
 
+def clear_cache() -> None:
+    """Forget the cached headlines, so that the next requests fetch them again."""
+    with _cache_lock:
+        _cache.clear()
+
+
 def _remember_listed(articles: Iterable[Article], live: bool) -> None:
     with _listed_articles_lock:
         for article in articles:

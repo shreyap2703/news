@@ -58,7 +58,12 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   // to the welcome page to set up its preferences; logging in never does.
   if (user) {
     const justSignedUp = mode === 'signup' && submit.status === 'submitting'
-    return <Navigate to={justSignedUp ? '/welcome' : redirectTarget(location.state)} replace />
+    // The welcome page gets the page that sent the user here, to return to once the preferences are saved.
+    return justSignedUp ? (
+      <Navigate to="/welcome" replace state={location.state} />
+    ) : (
+      <Navigate to={redirectTarget(location.state)} replace />
+    )
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

@@ -29,6 +29,14 @@ function toggle(list: string[], item: string): string[] {
   return list.includes(item) ? list.filter((value) => value !== item) : [...list, item]
 }
 
+/** The page that sent the reader here to choose their interests (the recommendations), to return to afterwards. */
+function returnPath(state: unknown): string | null {
+  if (state !== null && typeof state === 'object' && 'from' in state && typeof state.from === 'string') {
+    return state.from.startsWith('/') && state.from !== '/welcome' ? state.from : null
+  }
+  return null
+}
+
 function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" className="pref-chip" aria-pressed={pressed} onClick={onClick}>
@@ -69,6 +77,8 @@ function Group({ title, hint, children }: { title: ReactNode; hint?: string; chi
 function PreferencesForm({ user, initial, firstVisit }: { user: User; initial: Preferences; firstVisit: boolean }) {
   const { profile, onProfileSaved } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const returnTo = returnPath(location.state)
   const [step, setStep] = useState(0)
   const [prefs, setPrefs] = useState(initial)
   const [topicDraft, setTopicDraft] = useState('')
@@ -100,7 +110,7 @@ function PreferencesForm({ user, initial, firstVisit }: { user: User; initial: P
       onProfileSaved(await savePreferences(user.id, { ...chosen, sections } as unknown as Json))
       // Open the headlines on the first section picked.
       if (sections[0]) saveFilters({ ...loadFilters(), category: sections[0] })
-      navigate('/', { replace: true })
+      navigate(returnTo ?? '/', { replace: true })
     } catch (error) {
       setSave({ status: 'error', message: errorMessage(error) })
     }
@@ -402,7 +412,7 @@ function PreferencesForm({ user, initial, firstVisit }: { user: User; initial: P
             Skip for now
           </button>
         ) : (
-          <button type="button" className="pref-skip" disabled={saving} onClick={() => navigate('/profile')}>
+          <button type="button" className="pref-skip" disabled={saving} onClick={() => navigate(returnTo ?? '/profile')}>
             Cancel
           </button>
         )}

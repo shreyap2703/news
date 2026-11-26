@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link, NavLink, matchPath, useLocation } from 'react-router'
+import { Link, NavLink, matchPath, useLocation, useNavigate } from 'react-router'
 import { displayName, useAuth } from '../auth.ts'
 import { BRIEFING_SETTINGS_ID, useBriefingMenu } from '../briefingMenu.ts'
+import { searchFrom } from '../filters.ts'
 import ProfileMenu from './ProfileMenu.tsx'
 
 /** The log in and sign up forms have nothing to search, so the search bar is hidden there. */
@@ -9,14 +10,28 @@ const PAGES_WITHOUT_SEARCH = ['/login', '/signup']
 
 export default function NavBar() {
   const { loading, user, profile } = useAuth()
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const { pathname } = location
+  const navigate = useNavigate()
   const name = user ? displayName(user, profile) : ''
   const showSearch = !PAGES_WITHOUT_SEARCH.some((path) => matchPath(path, pathname))
-  // The briefing settings belong to the headlines page, so only it gets the menu button (which phones show).
-  const showMenuButton = matchPath('/', pathname) !== null
-  const { open: menuOpen, setOpen: setMenuOpen, buttonRef: menuButtonRef } = useBriefingMenu()
-  const [searchValue, setSearchValue] = useState('')
+  // The menu button (which phones show) opens the briefing settings of the page, on pages that have them.
+  const {
+    open: menuOpen,
+    setOpen: setMenuOpen,
+    buttonRef: menuButtonRef,
+    available: showMenuButton,
+  } = useBriefingMenu()
+  const [searchValue, setSearchValue] = useState(() => searchFrom(location.state))
+  const [searchPage, setSearchPage] = useState(pathname)
   const [scrolled, setScrolled] = useState(false)
+
+  // The box shows the search on screen: it empties when another page opens, and shows the search that brought the
+  // reader to the headlines page from another page.
+  if (pathname !== searchPage) {
+    setSearchPage(pathname)
+    setSearchValue(searchFrom(location.state))
+  }
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 12)
@@ -28,7 +43,12 @@ export default function NavBar() {
   const handleSearch = () => {
     const trimmed = searchValue.trim()
     setSearchValue(trimmed)
-    window.dispatchEvent(new CustomEvent('news-search', { detail: trimmed }))
+    if (pathname === '/') {
+      window.dispatchEvent(new CustomEvent('news-search', { detail: trimmed }))
+    } else if (trimmed) {
+      // Searches cover every section, so other pages show the results on the headlines page.
+      navigate('/', { state: { search: trimmed } })
+    }
   }
 
   return (
@@ -37,6 +57,9 @@ export default function NavBar() {
       <nav className="navbar-links" aria-label="Main">
         <NavLink to="/" end className="navbar-link">
           Home
+        </NavLink>
+        <NavLink to="/recommendations" className="navbar-link">
+          For you
         </NavLink>
       </nav>
 

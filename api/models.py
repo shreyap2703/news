@@ -34,6 +34,25 @@ class NewsResponse(ApiModel):
     using_fallback: bool
 
 
+class RecommendationReason(ApiModel):
+    """Which of the reader's interests a recommended story comes from."""
+
+    kind: Literal["topic", "section", "city"]
+    # The followed topic, the section's label, or the city.
+    label: str
+    section_id: str = ""
+
+
+class RecommendedArticle(Article):
+    reason: RecommendationReason
+
+
+class RecommendationsResponse(ApiModel):
+    hours: int
+    articles: list[RecommendedArticle]
+    using_fallback: bool
+
+
 class BriefingRequest(ApiModel):
     category: str
     hours: int = Field(default=24, ge=1, le=168)

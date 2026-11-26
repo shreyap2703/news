@@ -49,3 +49,11 @@ export function saveFilters({ category, hours, limit }: NewsFilters): void {
     // Without storage (for example, when the browser blocks it), a reload starts from the defaults again.
   }
 }
+
+/** The search typed in the top bar on another page, which opened the headlines page with `{ search }` as its state. */
+export function searchFrom(state: unknown): string {
+  if (state !== null && typeof state === 'object' && 'search' in state && typeof state.search === 'string') {
+    return state.search.trim()
+  }
+  return ''
+}

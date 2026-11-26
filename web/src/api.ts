@@ -1,4 +1,11 @@
-import type { Article, BriefingResponse, Category, ChatTurn, NewsResponse } from './types.ts'
+import type {
+  Article,
+  BriefingResponse,
+  Category,
+  ChatTurn,
+  NewsResponse,
+  RecommendationsResponse,
+} from './types.ts'
 
 export interface NewsQuery {
   category: string
@@ -65,6 +72,35 @@ export function fetchNews({ category, hours, limit, search, refresh = false }: N
 /** Returns the story with a short summary built from several outlets' coverage of it. */
 export function fetchStorySummary(url: string, signal?: AbortSignal): Promise<Article> {
   return request<Article>(`/api/news/summary?${new URLSearchParams({ url })}`, { signal })
+}
+
+/** The reader's interests from their saved preferences, and the sidebar's choices. */
+export interface RecommendationsQuery {
+  /** Section ids, in the order the reader picked them. */
+  sections: string[]
+  topics: string[]
+  city: string
+  mutedTopics: string[]
+  hiddenSources: string[]
+  hours: number
+  limit: number
+  /** Ask the API to clear its 10-minute cache before fetching. */
+  refresh?: boolean
+}
+
+/** Returns one feed combining the reader's sections, followed topics, and city, each story with its reason. */
+export function fetchRecommendations(
+  { sections, topics, city, mutedTopics, hiddenSources, hours, limit, refresh = false }: RecommendationsQuery,
+  signal?: AbortSignal,
+): Promise<RecommendationsResponse> {
+  const params = new URLSearchParams({ hours: String(hours), limit: String(limit) })
+  for (const section of sections) params.append('section', section)
+  for (const topic of topics) params.append('topic', topic)
+  if (city.trim()) params.set('city', city.trim())
+  for (const topic of mutedTopics) params.append('mute', topic)
+  for (const source of hiddenSources) params.append('hideSource', source)
+  if (refresh) params.set('refresh', 'true')
+  return request<RecommendationsResponse>(`/api/recommendations?${params}`, { signal })
 }
 
 export function createBriefing(

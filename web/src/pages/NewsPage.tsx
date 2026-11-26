@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { flushSync } from 'react-dom'
+import { useLocation } from 'react-router'
 import { errorMessage, fetchCategories, fetchNews, type NewsQuery } from '../api.ts'
 import { useAuth } from '../auth.ts'
-import { useBriefingMenu } from '../briefingMenu.ts'
+import { useBriefingSettingsMenu } from '../briefingMenu.ts'
 import Sidebar from '../components/Sidebar.tsx'
 import { Alert, Spinner } from '../components/Status.tsx'
 import StoryCarousel from '../components/StoryCarousel.tsx'
-import { loadFilters, saveFilters } from '../filters.ts'
+import { loadFilters, saveFilters, searchFrom } from '../filters.ts'
 import { orderSections, parsePreferences } from '../preferences.ts'
 import type { Category, NewsResponse } from '../types.ts'
 
@@ -19,27 +19,19 @@ interface LoadedNews {
 export default function NewsPage() {
   // Read once, so a page reload comes back to the section and filters chosen before it.
   const [savedFilters] = useState(loadFilters)
+  const location = useLocation()
   const [categories, setCategories] = useState<Category[]>([])
   const [categoriesError, setCategoriesError] = useState<string | null>(null)
   const [categoriesAttempt, setCategoriesAttempt] = useState(0)
   // An empty category means "not picked yet": the default section below is used until the reader picks one.
   const [query, setQuery] = useState<NewsQuery>({ ...savedFilters, category: '' })
-  const [submittedSearch, setSubmittedSearch] = useState('')
+  const [submittedSearch, setSubmittedSearch] = useState(() => searchFrom(location.state))
   const [searchVersion, setSearchVersion] = useState(0)
   const [news, setNews] = useState<LoadedNews | null>(null)
   const [newsError, setNewsError] = useState<string | null>(null)
   const [settledQuery, setSettledQuery] = useState<NewsQuery | null>(null)
-  const { open: menuOpen, setOpen: setMenuOpen, buttonRef: menuButtonRef } = useBriefingMenu()
+  const { menuOpen, closeMenu } = useBriefingSettingsMenu()
   const { profile } = useAuth()
-
-  // The briefing menu belongs to this page, so it closes when the page is left.
-  useEffect(() => () => setMenuOpen(false), [setMenuOpen])
-
-  const closeMenu = () => {
-    // The top bar stops being inert once the menu has closed, and only then can its button take the focus back.
-    flushSync(() => setMenuOpen(false))
-    menuButtonRef.current?.focus()
-  }
 
   // Signed-in readers see the sections they chose on the welcome page first, and open on the first of them.
   const savedPreferences = profile.status === 'ready' ? profile.profile?.preferences : null
